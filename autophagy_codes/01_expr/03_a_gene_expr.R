@@ -2,14 +2,17 @@ library(magrittr)
 library(ggplot2)
 # processed path
 
-tcga_path = "/home/cliu18/liucj/projects/6.autophagy/TCGA"
+tcga_path = "S:/study/生存分析/免疫检查点project/liucj_tcga_process_data"
 #output path
-expr_path <- "/home/cliu18/liucj/projects/6.autophagy/02_autophagy_expr/"
-expr_path_a <- file.path(expr_path, "03_a_gene_expr")
+expr_path <- "S:/study/生存分析/免疫检查点project/result"
+expr_path_a <- file.path(expr_path, "all_expr")
 # Read gene list
 # Gene list was compress as rds
-expr <- readr::read_rds(file.path(tcga_path, "pancan_expr_20160513.rds.gz"))
-gene_list <- readr::read_rds(file.path(expr_path_a, "rds_03_a_atg_lys_gene_list.rds.gz"))
+expr <- readr::read_rds(file.path(tcga_path, "pancan33_expr.rds.gz"))
+gene_list_path <- "S:/study/生存分析/免疫检查点project/免疫检查点"
+gene_list <- read.table(file.path(gene_list_path, "all.entrez_id-gene_id"),header=T)
+gene_list$symbol %>% as.character() ->gene_list$symbol
+#gene_list <- readr::read_rds(file.path(expr_path_a, "rds_03_a_atg_lys_gene_list.rds.gz"))
 
 #######################
 # filter out genes
@@ -26,6 +29,7 @@ expr %>%
 
 readr::write_rds(x = gene_list_expr, path = file.path(expr_path_a, ".rds_03_a_gene_list_expr.rds.gz"), compress = "gz")
 
+######have not used script below.############################################################
 
 #################################
 # Caculate p-value and fold-change.

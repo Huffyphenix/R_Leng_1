@@ -1,17 +1,22 @@
 library(magrittr)
 library(ggplot2)
 
-expr_path <- "/home/cliu18/liucj/projects/6.autophagy/02_autophagy_expr/"
-stage_path <- file.path(expr_path, "03_b_stage")
-tcga_path <- "/home/cliu18/liucj/projects/6.autophagy/TCGA"
-expr_path <- file.path(expr_path, "03_a_gene_expr")
+expr_path <- "S:/study/生存分析/免疫检查点project/result"
+stage_path <- file.path(expr_path, "3.stage")
+tcga_path <- "S:/study/生存分析/免疫检查点project/liucj_tcga_process_data"
+expr_path <- file.path(expr_path, "all_expr")
 
 clinical_stage <- 
-  readr::read_rds(path = file.path(tcga_path,"pancan_clinical_stage.rds.gz")) %>% 
+  readr::read_rds(path = file.path(tcga_path,"pancan34_clinical_stage.rds.gz")) %>% 
   dplyr::filter(n >= 40) %>% 
   dplyr::select(-n)
 
-gene_list <- readr::read_rds(file.path(expr_path, "rds_03_a_atg_lys_gene_list.rds.gz"))
+gene_list_path <- "S:/study/生存分析/免疫检查点project/免疫检查点"
+gene_list <- read.table(file.path(gene_list_path, "all.entrez_id-gene_id"),header=T)
+gene_list$symbol %>% as.character() ->gene_list$symbol
+gene_type<-read.table(file.path(gene_list_path,"checkpoint.type"),header=T)
+gene_list<-dplyr::left_join(gene_list,gene_type,by="symbol")
+#gene_list <- readr::read_rds(file.path(expr_path, "rds_03_a_atg_lys_gene_list.rds.gz"))
 gene_list_expr <- readr::read_rds(path = file.path(expr_path, ".rds_03_a_gene_list_expr.rds.gz"))
 
 
@@ -108,14 +113,14 @@ expr_stage %>%
   dplyr::select(-filter_expr, -stage) %>% 
   dplyr::mutate(diff_pval = purrr::map(merged_clean, fun_stage_test)) %>% 
   dplyr::collect() %>%
-  dplyr::as_tibble() %>%
+  tibble::as_tibble() %>%
   dplyr::ungroup() %>%
   dplyr::select(-PARTITION_ID) %>% 
   tidyr::unnest(diff_pval, .drop = F) -> expr_stage_sig_pval
 on.exit(parallel::stopCluster(cluster))
 
 expr_stage_sig_pval %>% 
-  readr::write_rds(path = file.path(stage_path, ".rds_03_b_stage_gene_expr.rds.gz"), compress = "gz")
+  readr::write_rds(path = file.path(stage_path, ".rds_03_b_stage_gene_pval.rds.gz"), compress = "gz")
 # expr_stage_sig_pval <- readr::read_rds(path = file.path(stage_path, ".rds_03_b_stage_gene_expr.rds.gz"))
 #--------------------------------------------------------
 
@@ -136,18 +141,28 @@ fun_rank_gene <- function(pattern){
     tidyr::unnest() %>%
     dplyr::arrange(rank)
 } # get gene rank
-
+get_pattern <- function(p.value) {
+  if(!is.na(p.value)){
+    if(p.value < 0.05) {
+    return(1)
+  }else{
+    return(0)
+  }}else{
+    return(0)
+  }
+}# get pattern
 
 expr_stage_sig_pval %>% 
-  dplyr::select(cancer_types, symbol) %>% 
-  dplyr::mutate(n = 1) %>% 
+  dplyr::mutate(n = mapply(get_pattern,p.value)) %>% 
+  dplyr::select(cancer_types, symbol,n) %>% 
   tidyr::spread(key = cancer_types, value = n) -> pattern
 
 cancer_rank <- pattern %>% fun_rank_cancer()
+gene_list$functionWithImmune %>% as.character() -> gene_list$functionWithImmune
 gene_rank <- pattern %>% 
   fun_rank_gene() %>% 
   dplyr::left_join(gene_list, by = "symbol") %>% 
-  dplyr::mutate(color = plyr::revalue(status, replace = c('a' = "#e41a1c", "l" = "#377eb8", "i" = "#4daf4a", "p" = "#984ea3"))) %>%
+  dplyr::mutate(color = plyr::revalue(functionWithImmune, replace = c('TwoSide' = "blue", "Inhibit" = "red", "Activate" = "green"))) %>%
   dplyr::arrange(color, rank)
 
 expr_stage_sig_pval %>% 
@@ -178,13 +193,13 @@ expr_stage_sig_pval %>%
     legend.text = element_text(size = 12),
     legend.title = element_text(size = 14),
     legend.key = element_rect(fill = "white", colour = "black")
-  ) ->p
+  ) ->p;p
 ggsave(
   filename = "fig_03_b_stage_sig_genes.pdf",
   plot = p,
   device = "pdf",
   width = 8,
-  height = 22,
+  height = 8,
   path = stage_path
 )
 readr::write_rds(
@@ -205,7 +220,7 @@ fun_draw_boxplot <- function(cancer_types, merged_clean, symbol, p.value, fdr){
     dplyr::mutate(expr = log2(expr)) %>% 
     dplyr::arrange(stage) %>% 
     ggpubr::ggboxplot(x = "stage", y = "expr",  color = "stage", pallete = "jco"  ) +
-    ggpubr::stat_compare_means(comparisons = comp_list, method = "t.test") + 
+    ggpubr::sta t_compare_means(comparisons = comp_list, method = "t.test") + 
     ggpubr::stat_compare_means(method = "anova", label.y = 14) +
     labs(x  = "", y = "Expression (log2 RSEM)", title = paste(gene, "expression stage change in", cancer_types)) +
     ggthemes::scale_color_gdocs() -> p

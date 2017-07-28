@@ -1,17 +1,36 @@
+#load(file = file.path(out_path, "rda_00_gene_expr.rda"))
 library(magrittr)
+library(dplyr)
+library(RDS)
+library(gtools)
+
+# pac_check<-function(x){
+#   if(require(x)){
+#   print(paste(x,"is loaded correctly."))} else {
+#   print(paste("trying to install",x))
+#   install.packages(x)
+#   if(require(x)){
+#     print(paste(x,"installed and loaded."))
+#   } else {
+#     stop(paste("could not install",x))
+#   }
+#   }
+# }
+#pac_check("dplyr")
 # processed path
-tcga_path = "/home/cliu18/liucj/projects/6.autophagy/TCGA"
-expr <- readr::read_rds(file.path(tcga_path, "pancan_expr_20160513.rds.gz"))
+tcga_path = "S:/study/生存分析/免疫检查点project/liucj_tcga_process_data"
+expr <- readr::read_rds(file.path(tcga_path, "pancan33_expr.rds.gz",fsep=.Platform$file.sep))
 
 # Read gene list
 # Gene list was compress as rds
-gene_list_path <- "/home/cliu18/liucj/projects/6.autophagy/01_autophagy_gene_list"
-gene_list <- readr::read_rds(file.path(gene_list_path, "999.complte_gene_list.rds.gz"))
-
-
-
+gene_list_path <- "/home/huff/immune_checkpoint/checkpoint"
+#gene_list <- readr::read_rds(file.path(gene_list_path, "all.entrez_id"))
+gene_list <- read.table(file.path(gene_list_path, "all.entrez_id-gene_id"),header=T)
+gene_list$symbol %>% as.character() ->gene_list$symbol
+gene_type<-read.table(file.path(gene_list_path,"checkpoint.type"),header=T)
+gene_list<-dplyr::left_join(gene_list,gene_type,by="symbol")
 #output path
-out_path <- "/home/cliu18/liucj/projects/6.autophagy/02_autophagy_expr/"
+out_path <- "S:/study/生存分析/免疫检查点project/result/1.DE"
 
 #######################
 # filter out genes
@@ -158,7 +177,7 @@ gene_expr_pattern %>%
   tidyr::unnest() %>%
   dplyr::arrange(rank) %>% 
   dplyr::left_join(gene_list, by = "symbol") %>% 
-  dplyr::mutate(color = plyr::revalue(x = type, replace = c("Autophagy" = "red", "Lysosome" = "black"))) %>% 
+  dplyr::mutate(color = plyr::revalue(x = functionWithImmune, replace = c("Inhibit" = "red", "Activate" = "green", "TwoSide"="blue"))) %>% 
   dplyr::select(symbol, rank, up, down, type, color) -> gene_rank
 
 gene_expr_pattern %>%
@@ -167,6 +186,7 @@ gene_expr_pattern %>%
   dplyr::arrange(-rank) -> cancer_types_rank
 
 library(ggplot2)
+gene_rank$color %>% as.character() ->gene_rank$color
 ggplot(gene_list_fc_pvalue_simplified_filter,
        aes(x = cancer_types, y = symbol, fill = log2(fc))) +
   geom_tile(color = "black") +
@@ -178,7 +198,7 @@ ggplot(gene_list_fc_pvalue_simplified_filter,
     na.value = "white",
     breaks = seq(-3, 3, length.out = 5),
     labels = c("<= -3", "-1.5", "0", "1.5", ">= 3"),
-    name = "log2 FC"
+    name = "log2(FC)"
   ) +
   scale_y_discrete(limit = gene_rank$symbol) +
   scale_x_discrete(limit = cancer_types_rank$cancer_types, expand = c(0, 0)) +
@@ -188,16 +208,17 @@ ggplot(gene_list_fc_pvalue_simplified_filter,
     axis.title = element_blank(),
     axis.ticks = element_blank(),
     axis.text.y = element_text(color = gene_rank$color),
-    legend.text = element_text(size = 12),
-    legend.title = element_text(size = 14),
-    legend.key = element_rect(fill = "white", colour = "black")
-  ) -> p
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 12),
+    legend.key = element_rect(fill = "white", colour = "black"),
+    axis.text.x = element_text(angle = 315, hjust = 0,vjust=1)
+  ) -> p;p
 ggsave(
   filename = "fig_01_expr_pattern.pdf",
   plot = p,
   device = "pdf",
-  width = 10,
-  height = 20,
+  width = 6,
+  height = 6,
   path = out_path
 )
 readr::write_rds(
@@ -210,6 +231,7 @@ readr::write_rds(
 ggplot(gene_list_fc_pvalue_simplified_filter,
        aes(x = cancer_types, y = symbol)) +
   geom_point(aes(size = p.value, col = log2(fc))) +
+ # geom_point(stroke=1)+
   scale_color_gradient2(
     low = "blue",
     mid = "white",
@@ -218,13 +240,13 @@ ggplot(gene_list_fc_pvalue_simplified_filter,
     na.value = "white",
     breaks = seq(-3, 3, length.out = 5),
     labels = c("<= -3", "-1.5", "0", "1.5", ">= 3"),
-    name = "Fold change"
+    name = "log2(FC)"
   ) +
   scale_size_continuous(
-    limit = c(-log10(0.05), 15),
+    limit = c(-log10(0.1), 15),
     range = c(1, 6),
-    breaks = c(-log10(0.05), 5, 10, 15),
-    labels = c("0.05", latex2exp::TeX("$10^{-5}$"), latex2exp::TeX("$10^{-10}$"), latex2exp::TeX("$< 10^{-15}$"))
+    breaks = c(-log10(0.1),-log10(0.05), 5, 10, 15),
+    labels = c("0.1","0.05", latex2exp::TeX("$10^{-5}$"), latex2exp::TeX("$10^{-10}$"), latex2exp::TeX("$< 10^{-15}$"))
   ) +
   scale_y_discrete(limit = gene_rank$symbol) +
   scale_x_discrete(limit = cancer_types_rank$cancer_types) +
@@ -241,14 +263,15 @@ ggplot(gene_list_fc_pvalue_simplified_filter,
     axis.ticks = element_line(color = "black"),
     legend.text = element_text(size = 12),
     legend.title = element_text(size = 14),
-    legend.key = element_rect(fill = "white", colour = "black")
-  ) -> p
+    legend.key = element_rect(fill = "white", colour = "black"),
+    axis.text.x = element_text(angle = 315, hjust = 0,vjust=1)
+  ) -> p;p
 ggsave(
   filename = "fig_02_expr_pattern_fc_pval.pdf",
   plot = p,
   device = "pdf",
-  width = 10,
-  height = 20,
+  width = 6,
+  height = 6,
   path = out_path
 )
 readr::write_rds(
@@ -262,14 +285,12 @@ readr::write_rds(
 ggplot(
   dplyr::mutate(
     gene_list_fc_pvalue_simplified_filter,
-    alt = ifelse(log2(fc) > 0,  "up", "down")
-  ),
-  aes(x = symbol, fill = factor(alt))
-) +
+    alt = ifelse(log2(fc) > 0,  "up", "down")),
+  aes(x = symbol, fill = factor(alt))) +
   geom_bar(color = NA, width = 0.5) +
   scale_fill_manual(
     limit = c("down", "up"),
-    values = c("blue", "red"),
+    values = c("royalblue1", "tomato1"),
     guide = FALSE
   ) +
   scale_y_continuous(
@@ -286,19 +307,20 @@ ggplot(
     ),
     panel.grid.major = element_line(linetype = "dashed", color = "lightgray"),
     axis.title = element_blank(),
-    axis.text.y = element_text(color = gene_rank$color),
+    axis.text.y = element_text(color = gene_rank$color,size = 16),
+    axis.text.x = element_text(size = 16),
     axis.ticks.x = element_blank(),
     legend.text = element_text(size = 12),
     legend.title = element_text(size = 14),
     legend.key = element_rect(fill = "white", colour = "black")
   ) +
-  coord_flip() -> p
+  coord_flip() -> p;p
 ggsave(
   filename = "fig_03_expr_pattern_cancer_counts.pdf",
   plot = p,
   device = "pdf",
-  width = 10,
-  height = 20,
+  width = 15,
+  height = 15,
   path = out_path
 )
 readr::write_rds(
@@ -308,4 +330,5 @@ readr::write_rds(
 )
 
 save.image(file = file.path(out_path, "rda_00_gene_expr.rda"))
-load(file = file.path(out_path, "rda_00_gene_expr.rda"))
+rm(list=ls())
+
