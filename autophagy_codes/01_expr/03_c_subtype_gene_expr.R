@@ -1,17 +1,21 @@
 library(magrittr)
 library(ggplot2)
 
-expr_path <- "/home/cliu18/liucj/projects/6.autophagy/02_autophagy_expr/"
-subtype_path <- file.path(expr_path, "03_c_subtype")
-tcga_path <- "/home/cliu18/liucj/projects/6.autophagy/TCGA"
-expr_path <- file.path(expr_path, "03_a_gene_expr")
+expr_path <- "S:/study/生存分析/免疫检查点project/result"
+subtype_path <- file.path(expr_path, "3.subtype")
+tcga_path <- "S:/study/生存分析/免疫检查点project/liucj_tcga_process_data"
+expr_path <- file.path(expr_path, "all_expr")
 clinical_subtype <- 
-  readr::read_rds(path = file.path(tcga_path,"pancan_clinical_subtype.rds.gz")) %>% 
+  readr::read_rds(path = file.path(tcga_path,"pancan34_clinical_subtype.rds.gz")) %>% 
   dplyr::select(-n)
 
-gene_list <- readr::read_rds(file.path(expr_path, "rds_03_at_ly_comb_gene_list.rds.gz"))
+gene_list_path <- "S:/study/生存分析/免疫检查点project/免疫检查点"
+gene_list <- read.table(file.path(gene_list_path, "all.entrez_id-gene_id"),header=T)
+gene_list$symbol %>% as.character() ->gene_list$symbol
+gene_type<-read.table(file.path(gene_list_path,"checkpoint.type"),header=T)
+gene_list<-dplyr::left_join(gene_list,gene_type,by="symbol")
+#gene_list <- readr::read_rds(file.path(expr_path, "rds_03_a_atg_lys_gene_list.rds.gz"))
 gene_list_expr <- readr::read_rds(path = file.path(expr_path, ".rds_03_a_gene_list_expr.rds.gz"))
-
 
 # merge clinical and expr
 expr_subtype <- 
@@ -99,7 +103,7 @@ expr_subtype %>%
   dplyr::select(-filter_expr, -subtype) %>% 
   dplyr::mutate(diff_pval = purrr::map(merged_clean, fun_subtype_test)) %>% 
   dplyr::collect() %>%
-  dplyr::as_tibble() %>%
+  tibble::as_tibble() %>%
   dplyr::ungroup() %>%
   dplyr::select(-PARTITION_ID) %>% 
   tidyr::unnest(diff_pval, .drop = F) -> expr_subtype_sig_pval
@@ -138,15 +142,15 @@ cancer_rank <- pattern %>% fun_rank_cancer()
 gene_rank <- pattern %>% 
   fun_rank_gene() %>% 
   dplyr::left_join(gene_list, by = "symbol") %>% 
-  dplyr::mutate(color = plyr::revalue(type, replace = c("Lysosome" = "black", "Autophagy" = "red")))
-
+  dplyr::mutate(color = plyr::revalue(functionWithImmune,replace = c('TwoSide' = "blue", "Inhibit" = "red", "Activate" = "green")))
+gene_rank$color %>% as.character() ->gene_rank$color
 
 expr_subtype_sig_pval %>% 
   ggplot(aes(x = cancer_types, y = symbol, color = cancer_types)) +
   geom_point(aes(size = -log10(p.value))) +
   scale_x_discrete(limit = cancer_rank$cancer_types) +
   scale_y_discrete(limit = gene_rank$symbol) +
-  scale_size_continuous(name = "P-value") +
+  scale_size_continuous(name = "-log10(p.value)") +
   theme(
     panel.background = element_rect(colour = "black", fill = "white"),
     panel.grid = element_line(colour = "grey", linetype = "dashed"),
@@ -163,13 +167,13 @@ expr_subtype_sig_pval %>%
     legend.text = element_text(size = 12),
     legend.title = element_text(size = 14),
     legend.key = element_rect(fill = "white", colour = "black")
-  ) -> p
+  ) -> p;p
 ggsave(
   filename = "fig_03_c_subtype_sig_genes.pdf",
   plot = p,
   device = "pdf",
   width = 8,
-  height = 25,
+  height = 8,
   path = subtype_path
 )
 # readr::write_rds(
@@ -179,21 +183,46 @@ ggsave(
 # )
 
 #-----------------------------------------------------------
+compare_list<-function(x){
+  res<-list()
+  for(i in 2:length(x)-1){
+    res<-c(res,list(c(x[i],x[i+1])))
+  }
+  return(res)
+}
+
 fun_draw_boxplot <- function(cancer_types, merged_clean, symbol, p.value, fdr){
   # print(cancer_types)
   p_val <- signif(-log10(p.value), digits = 3)
   gene <- symbol
   fig_name <- paste(cancer_types, gene, p_val, "pdf", sep = ".")
+  merged_clean %>% 
+    dplyr::select(subtype) %>% 
+    unique() %>% .[,1] %>% sort() %>%
+    compare_list() ->comp_list
+  merged_clean %>% 
+    dplyr::select(subtype) %>% 
+    unique() %>% .[,1] %>% sort() %>%
+    length()->title.pos.x
   # comp_list <- list(c("Stage I", "Stage II"), c("Stage II", "Stage III"), c("Stage III", "Stage IV"))
+  merged_clean %>% 
+    dplyr::filter(symbol == gene) %>% 
+    dplyr::mutate( expr = log2(expr)) %>% 
+    dplyr::filter(expr != "-Inf") %>%
+    dplyr::select(expr) %>%
+    max() ->max_exp
   merged_clean %>% 
     dplyr::filter(symbol == gene) %>% 
     dplyr::mutate(expr = log2(expr)) %>% 
     dplyr::arrange(subtype) %>% 
     ggpubr::ggboxplot(x = "subtype", y = "expr",  color = "subtype", pallete = "jco"  ) +
-    ggpubr::stat_compare_means(method = "anova") +
-    labs(x  = "", y = "Expression (log2 RSEM)", title = paste(gene, "expression subtype change in", cancer_types)) +
+    theme(legend.position = "none") +
+    ggpubr::stat_compare_means(comparisons = comp_list, method = "t.test") + 
+    ggpubr::stat_compare_means(method = "kruskal.test",label.y = max_exp+6,label.x=1,label.sep = "\n") +
+    labs(x  = "", y = "Expression (log2 RSEM)") +
+    geom_text(label=paste(cancer_types,gene,sep="\n"),x =title.pos.x,y=max_exp+6,size=4,colour="black")+
     ggthemes::scale_color_gdocs() -> p
-  ggsave(filename = fig_name, plot = p, path = file.path(subtype_path, "boxplot"), width = 6, height = 6,  device = "pdf")
+  ggsave(filename = fig_name, plot = p, path = file.path(subtype_path, "boxplot"), width = 6, height = 4.5,  device = "pdf")
 }
 
 expr_subtype_sig_pval %>% purrr::pwalk(.f = fun_draw_boxplot)

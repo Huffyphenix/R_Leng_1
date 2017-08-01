@@ -208,7 +208,7 @@ readr::write_rds(
   compress = "gz"
 )
 #-------------------------------------
-  
+library("ggthemes","ggpubr")
 fun_draw_boxplot <- function(cancer_types, merged_clean, symbol, p.value, fdr){
   # print(cancer_types)
   p_val <- signif(-log10(p.value), digits = 3)
@@ -217,17 +217,25 @@ fun_draw_boxplot <- function(cancer_types, merged_clean, symbol, p.value, fdr){
   comp_list <- list(c("Stage I", "Stage II"), c("Stage II", "Stage III"), c("Stage III", "Stage IV"))
   merged_clean %>% 
     dplyr::filter(symbol == gene) %>% 
+    dplyr::mutate( expr = log2(expr)) %>% 
+    dplyr::filter(expr != "-Inf") %>%
+    dplyr::select(expr) %>%
+    max() ->max_exp
+  merged_clean %>% 
+    dplyr::filter(symbol == gene) %>% 
     dplyr::mutate(expr = log2(expr)) %>% 
     dplyr::arrange(stage) %>% 
     ggpubr::ggboxplot(x = "stage", y = "expr",  color = "stage", pallete = "jco"  ) +
-    ggpubr::sta t_compare_means(comparisons = comp_list, method = "t.test") + 
-    ggpubr::stat_compare_means(method = "anova", label.y = 14) +
-    labs(x  = "", y = "Expression (log2 RSEM)", title = paste(gene, "expression stage change in", cancer_types)) +
+    theme(legend.position="none")+
+    ggpubr::stat_compare_means(comparisons = comp_list, method = "t.test") + 
+    ggpubr::stat_compare_means(method = "anova", label.y = max_exp+6) +
+    labs(x  = "", y = "Expression (log2 RSEM)") +
+    geom_text(label = paste(cancer_types,gene,sep=", "),x=3.5,y=max_exp+6,size=4.5,colour="black")+
     ggthemes::scale_color_gdocs() -> p
-    ggsave(filename = fig_name, plot = p, path = file.path(stage_path, "boxplot"), width = 6, height = 6,  device = "pdf")
+    ggsave(filename = fig_name, plot = p, path = file.path(stage_path, "boxplot"), width = 4, height = 3,  device = "pdf")
 }
 fun_draw_boxplot_filter <- function(cancer_types, merged_clean, symbol, p.value, fdr){
-  p_val <- signif(-log10(p.value), digits = 3)
+    p_val <- signif(-log10(p.value), digits = 3)
   gene <- symbol
   fig_name <- paste(cancer_types, gene, p_val, "pdf", sep = ".")
   comp_list <- list(c("Stage I", "Stage II"), c("Stage II", "Stage III"), c("Stage III", "Stage IV"))
@@ -235,26 +243,34 @@ fun_draw_boxplot_filter <- function(cancer_types, merged_clean, symbol, p.value,
   d <- merged_clean %>% 
     dplyr::filter(symbol == gene) %>% 
     dplyr::mutate( expr = log2(expr)) %>% 
-    dplyr::arrange(stage)
+    dplyr::arrange(stage) %>%
+    dplyr::filter(expr != "-Inf")
     
   p_list <- ggpubr::compare_means(expr ~ stage, data = d, method = "t.test")
   
   if(p_list %>% .$p %>% .[3] < 0.05){
+# if(p_list %>% .$p %>% .[3] < 0.05){
+    d %>% 
+      dplyr::filter(symbol == gene) %>%
+      dplyr::select(expr) %>%
+      max() ->max_exp
     d %>% 
       ggpubr::ggboxplot(x = "stage", y = "expr",  color = "stage", pallete = "jco"  ) +
+      theme(legend.position="none")+
       ggpubr::stat_compare_means(comparisons = comp_list, method = "t.test") + 
-      ggpubr::stat_compare_means(method = "anova", label.y = 14) +
-      labs(x  = "", y = "Expression (log2 RSEM)", title = paste(gene, "expression subtype change in", cancer_types)) +
+      ggpubr::stat_compare_means(method = "anova", label.y = max_exp+5) +
+      labs(x  = "", y = "Expression (log2 RSEM)") +
+      geom_text(label = paste(cancer_types,gene,sep=", "),x=3.5,y=max_exp+5,size=4.5,colour="black")+
       ggthemes::scale_color_gdocs() -> p
-      ggsave(filename = fig_name, plot = p, path = file.path(stage_path, "boxplot_stageI_vs_IV"), width = 6, height = 6,  device = "pdf")
+      ggsave(filename = fig_name, plot = p, path = file.path(stage_path, "boxplot"), width = 4, height = 3,  device = "pdf")
   } else{
     print(fig_name)
   }
 }
 
 
-expr_stage_sig_pval %>% purrr::pwalk(.f = fun_draw_boxplot)
-# expr_stage_sig_pval %>% purrr::pwalk(.f = fun_draw_boxplot_filter)
+expr_stage_sig_pval %>% dplyr::select(- order) %>% purrr::pwalk(.f = fun_draw_boxplot)
+expr_stage_sig_pval %>% dplyr::select(- order) %>% purrr::pwalk(.f = fun_draw_boxplot_filter)
 
 
 save.image(file = file.path(stage_path, ".rda_03_b_stage_gene_expr.rda"))
