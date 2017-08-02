@@ -3,14 +3,18 @@ library(ggplot2)
 
 
 # Path
-tcga_path <- "/home/cliu18/liucj/projects/6.autophagy/TCGA"
-mirna_path <- "/home/cliu18/liucj/projects/6.autophagy/07_mirna"
-expr_path <- "/home/cliu18/liucj/projects/6.autophagy/02_autophagy_expr/"
-expr_path_a <- file.path(expr_path, "03_a_gene_expr")
+tcga_path = "S:/study/生存分析/免疫检查点project/liucj_tcga_process_data"
+expr_path <- "S:/study/生存分析/免疫检查点project/result"
+expr_path_a <- file.path(expr_path, "all_expr")
+mirna_path <- "S:/study/生存分析/免疫检查点project/result/9.mirna"
 
 # load methylation and gene list
 mirna_target <- readr::read_rds(file.path(tcga_path, "mirna_gene_target.rds.gz"))
-gene_list <- readr::read_rds(file.path(expr_path_a, "rds_03_a_atg_lys_gene_list.rds.gz"))
+gene_list_path <- "S:/study/生存分析/免疫检查点project/免疫检查点"
+gene_list <- read.table(file.path(gene_list_path, "all.entrez_id-gene_id"),header=T)
+gene_list$symbol %>% as.character() ->gene_list$symbol
+gene_type<-read.table(file.path(gene_list_path,"checkpoint.type"),header=T)
+gene_list<-dplyr::left_join(gene_list,gene_type,by="symbol")
 mirna_expr <- readr::read_rds(file.path(tcga_path, "pancan33_mirna_expr.rds.gz"))
 
 gene_list %>% 
@@ -30,4 +34,5 @@ mirna_expr %>%
 
 
 save.image(file = file.path(mirna_path, ".rda_02_mirna_a_gene_list_target.rda"))
+rm(list=ls())
 load(file = file.path(mirna_path, ".rda_02_mirna_a_gene_list_target.rda"))

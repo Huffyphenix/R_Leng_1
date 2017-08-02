@@ -1,10 +1,19 @@
-path <- "/extraspace/TCGA/TCGA_exp_DataPortal/mRNA_exp"
-files.names <- list.files("/extraspace/TCGA/TCGA_protein/", pattern="*re_20160627")
-tcga_path <- "/home/cliu18/liucj/projects/6.autophagy/TCGA"
+# path <- "/extraspace/TCGA/TCGA_exp_DataPortal/mRNA_exp"
+# files.names <- list.files("/extraspace/TCGA/TCGA_protein/", pattern="*re_20160627")
+# tcga_path <- "/home/cliu18/liucj/projects/6.autophagy/TCGA"
 library(magrittr)
+####my path###
+expr_path <- "S:/study/生存分析/免疫检查点project/result"
+rppa_path <- file.path(expr_path, "03_e_rppa")
+tcga_path <- "S:/study/生存分析/免疫检查点project/liucj_tcga_process_data"
+expr_path <- file.path(expr_path, "all_expr")
 
-expr_path <- "/home/cliu18/liucj/projects/6.autophagy/02_autophagy_expr/"
-gene_list <- readr::read_rds(file.path(expr_path, "rds_03_at_ly_comb_gene_list.rds.gz"))
+gene_list_path <- "S:/study/生存分析/免疫检查点project/免疫检查点"
+gene_list <- read.table(file.path(gene_list_path, "all.entrez_id-gene_id"),header=T)
+gene_list$symbol %>% as.character() ->gene_list$symbol
+gene_type<-read.table(file.path(gene_list_path,"checkpoint.type"),header=T)
+gene_list<-dplyr::left_join(gene_list,gene_type,by="symbol")
+#gene_list <- readr::read_rds(file.path(expr_path, "rds_03_a_atg_lys_gene_list.rds.gz"))
 gene_list_expr <- readr::read_rds(path = file.path(expr_path, ".rds_03_a_gene_list_expr.rds.gz"))
 
 fun_barcode <- function(.b){

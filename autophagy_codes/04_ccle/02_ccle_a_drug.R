@@ -1,13 +1,18 @@
 library(magrittr)
-tcga_path = "/home/cliu18/liucj/projects/6.autophagy/TCGA"
-expr_path <- "/home/cliu18/liucj/projects/6.autophagy/02_autophagy_expr/"
-expr_path_a <- file.path(expr_path, "03_a_gene_expr")
-ccle_path <- "/home/cliu18/liucj/projects/6.autophagy/05_ccle"
+tcga_path = "S:/study/生存分析/免疫检查点project/liucj_tcga_process_data"
+expr_path <- "S:/study/生存分析/免疫检查点project/result"
+expr_path_a <- file.path(expr_path, "all_expr")
+ccle_path <- "S:/study/生存分析/免疫检查点project/result/7.ccle"
 
 # load data
 drug_gdsc <- readr::read_rds(file.path(tcga_path, "drug_gdsc_exp_spearman.rds.gz"))
 drug_ctrp <- readr::read_rds(file.path(tcga_path, "drug_ctrp_exp_spearman.rds.gz"))
-gene_list <- readr::read_rds(file.path(expr_path_a, "rds_03_a_atg_lys_gene_list.rds.gz"))
+gene_list_path <- "S:/study/生存分析/免疫检查点project/免疫检查点"
+gene_list <- read.table(file.path(gene_list_path, "all.entrez_id-gene_id"),header=T)
+gene_list$symbol %>% as.character() ->gene_list$symbol
+gene_type<-read.table(file.path(gene_list_path,"checkpoint.type"),header=T)
+gene_list<-dplyr::left_join(gene_list,gene_type,by="symbol")
+
 t_gdsc <- readr::read_rds(file.path(tcga_path, "drug_target_gdsc.rds.gz")) %>% 
   tidyr::unnest() %>% 
   dplyr::select(drug_name, target_pathway) %>% 
@@ -24,7 +29,7 @@ t_ctrp <- readr::read_rds(file.path(tcga_path, "drug_target_ctrp.rds.gz")) %>%
 gene_list %>% 
   dplyr::inner_join(drug_gdsc, by = "symbol") -> gdsc_gene_list
 
-fn_filter_drug <- function(.x, .cor = 0.3, .fdr = 0.05) {
+fn_filter_drug <- function(.x, .cor = 0.25, .fdr = 0.05) {
   .x %>% dplyr::filter(abs(cor_sprm) > .cor, fdr < .fdr)
 }
 
@@ -48,8 +53,11 @@ gdsc_plot_ready %>%
   dplyr::group_by(symbol) %>% 
   dplyr::summarise(cor_sum = sum(cor_sprm)) %>% 
   dplyr::left_join(gene_list, by = "symbol") %>% 
-  dplyr::mutate(color = ifelse(status == "l", "black", "red")) %>% 
+  dplyr::mutate(color = plyr::revalue(functionWithImmune, replace = c('TwoSide' = "blue", "Inhibit" = "red", "Activate" = "green"))) %>% 
+  dplyr::mutate(size = plyr::revalue(type,replace = c('Receptor'="bold.italic",'Ligand'="plain"))) %>%
   dplyr::arrange(cor_sum) -> gdsc_gene_rank
+gdsc_gene_rank$color %>% as.character() ->gdsc_gene_rank$color
+gdsc_gene_rank$size %>% as.character() ->gdsc_gene_rank$size
 
 gdsc_plot_ready %>% 
   dplyr::distinct(drug_name, target_pathway, count) %>% 
@@ -71,7 +79,7 @@ gdsc_plot_ready %>%
 pathway_color <- gdsc_drug_rank_pre %>% 
   dplyr::distinct(target_pathway, per) %>% 
   dplyr::arrange(per, target_pathway) %>% 
-  dplyr::mutate(color = ggthemes::gdocs_pal()(18))
+  dplyr::mutate(color = ggthemes::gdocs_pal()(17))
 
 gdsc_drug_rank_pre %>% 
   dplyr::select(-per) %>% 
@@ -82,8 +90,7 @@ pathway_color %>%
   geom_bar(stat = "identity", position = "stack", width = 0.001) +
   scale_fill_manual(values = pathway_color$color)
   
-p<- 
-  gdsc_plot_ready %>% 
+gdsc_plot_ready %>% 
   ggplot(aes(x = symbol, y = drug_name, color = cor_sprm)) +
   geom_point(aes(size = fdr)) +
   scale_x_discrete(limits = gdsc_gene_rank$symbol, expand = c(0.012,0.012)) +
@@ -104,8 +111,10 @@ p<-
     panel.grid.major=element_line(colour="grey",linetype="dashed",size=0.2),
     
     axis.title = element_blank(),
-    axis.text.x = element_text(size = 9, angle = 90, hjust = 1, vjust = 0.5, color = gdsc_gene_rank$color),
-    axis.text.y = element_text(size = 10, color = drug_rank$color),
+    axis.text.x = element_text(size = 9, angle = 90, hjust = 1, vjust = 0.5,
+                               color = gdsc_gene_rank$color,
+                               face = gdsc_gene_rank$size),
+    axis.text.y = element_text(size = 10, color = drug_rank$color,angle = 45),
     
     axis.ticks = element_line(color = "black"),
     
@@ -123,15 +132,15 @@ p<-
       barheight = 0.5,
       barwidth = 10
     )
-  )
+  )->p;p
 
-ggsave(filename = 'gdsc_sig_drug.pdf', plot = p, device = "pdf", path = ccle_path, width = 8, height = 12)
+ggsave(filename = 'gdsc_sig_drug.pdf', plot = p, device = "pdf", path = ccle_path, width = 8, height = 20)
 
 # CTRP analysis
 gene_list %>% 
   dplyr::inner_join(drug_ctrp, by = "symbol") -> ctrp_gene_list
 
-fn_filter_drug_ctrp <- function(.x, .cor = 0.3, .p_val = 0.05) {
+fn_filter_drug_ctrp <- function(.x, .cor = 0.25, .p_val = 0.05) {
   .x %>% dplyr::filter(abs(cor_sprm) > .cor, p_val < .p_val)
 }
 ctrp_gene_list %>% 
@@ -148,12 +157,15 @@ ctrp_gene_list_sig_drug %>%
 ctrp_plot_ready %>% 
   dplyr::group_by(symbol) %>% 
   dplyr::summarise(cor_sum = sum(cor_sprm)) %>% 
-  dplyr::left_join(gene_list, by = "symbol") %>% 
-  dplyr::mutate(color = ifelse(status == "l", "black", "red")) %>% 
+  dplyr::left_join(gene_list, by = "symbol") %>%
+  dplyr::mutate(color = plyr::revalue(functionWithImmune, replace = c('TwoSide' = "blue", "Inhibit" = "red", "Activate" = "green"))) %>% 
+  dplyr::mutate(size = plyr::revalue(type,replace = c('Receptor'="bold.italic",'Ligand'="plain"))) %>%
   dplyr::arrange(cor_sum) -> ctrp_gene_rank
+ctrp_gene_rank$color %>% as.character() ->ctrp_gene_rank$color
+ctrp_gene_rank$size %>% as.character() ->ctrp_gene_rank$size
 
-p<- 
-  ctrp_plot_ready %>% 
+
+ctrp_plot_ready %>% 
   ggplot(aes(x = symbol, y = drug_name, color = cor_sprm)) +
   geom_point(aes(size = p_val)) +
   scale_x_discrete(limits = ctrp_gene_rank$symbol, expand = c(0.012,0.012)) +
@@ -168,7 +180,8 @@ p<-
     low = "blue"
   ) +
   scale_size_continuous(
-    name = "P-value"
+    name = "P-value",
+    #range = c(1,5)
   ) +
   # ggthemes::theme_gdocs() +
   theme(
@@ -182,9 +195,10 @@ p<-
       angle = 90,
       hjust = 1, 
       vjust = 0.5, 
-      color = ctrp_gene_rank$color),
+      color = ctrp_gene_rank$color,
+      face = gdsc_gene_rank$size),
     axis.text.y = element_text(
-      # color = drug_rank$color, 
+      color = drug_rank$color, 
       size = 10),
     
     axis.ticks = element_line(color = "black"),
@@ -203,10 +217,10 @@ p<-
       barheight = 0.5,
       barwidth = 10
     )
-  )
+  )->p;p
 
-ggsave(filename = 'ctrp_sig_drug.pdf', plot = p, device = "pdf", path = ccle_path, width = 16, height = 22)
+ggsave(filename = 'ctrp_sig_drug.pdf', plot = p, device = "pdf", path = ccle_path, width = 8, height = 20)
 
 save.image(file = file.path(ccle_path, ".rda_02_ccle_a_gene_list.rda"))
 load(file = file.path(ccle_path, ".rda_02_ccle_a_gene_list.rda"))
-
+rm(list=ls())

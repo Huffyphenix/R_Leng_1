@@ -3,16 +3,20 @@ library(ggplot2)
 
 
 # Path
-tcga_path <- "/home/cliu18/liucj/projects/6.autophagy/TCGA"
-methy_path <- "/home/cliu18/liucj/projects/6.autophagy/06_methylation"
-expr_path <- "/home/cliu18/liucj/projects/6.autophagy/02_autophagy_expr/"
-expr_path_a <- file.path(expr_path, "03_a_gene_expr")
+tcga_path = "S:/study/生存分析/免疫检查点project/liucj_tcga_process_data"
+expr_path <- "S:/study/生存分析/免疫检查点project/result"
+expr_path_a <- file.path(expr_path, "all_expr")
+methy_path <- "S:/study/生存分析/免疫检查点project/result/8.methylation"
 methy_box <- file.path(methy_path, "boxplot")
 
 
 # load methylation and gene list
 methy <- readr::read_rds(file.path(tcga_path, "pancan33_meth.rds.gz"))
-gene_list <- readr::read_rds(file.path(expr_path_a, "rds_03_a_atg_lys_gene_list.rds.gz"))
+gene_list_path <- "S:/study/生存分析/免疫检查点project/免疫检查点"
+gene_list <- read.table(file.path(gene_list_path, "all.entrez_id-gene_id"),header=T)
+gene_list$symbol %>% as.character() ->gene_list$symbol
+gene_type<-read.table(file.path(gene_list_path,"checkpoint.type"),header=T)
+gene_list<-dplyr::left_join(gene_list,gene_type,by="symbol")
 
 # functions
 filter_gene_list <- function(.x, gene_list) {
@@ -64,7 +68,8 @@ fun_compare <- function(.x, .y ){
       type == "11" ~ "Normal"
     )) %>% 
     dplyr::filter(!is.na(gene)) -> .d
-  if(nrow(.d) < 20 || length(unique(.d$type)) != 2){return(tibble::tibble())}
+  if(nrow(.d) < 20 || length(unique(.d$type)) != 2){return(tibble::tibble())
+    print(paste(.y,":no normal/tumor sample."))}
   # at least 10 samples
   .d %>% 
     dplyr::select(barcode, type) %>% 
@@ -72,7 +77,8 @@ fun_compare <- function(.x, .y ){
     dplyr::group_by(type) %>% 
     dplyr::count() %>% 
     dplyr::pull(n) -> sample_num
-  if(any(sample_num < 10)){return(tibble::tibble())}
+  if(any(sample_num < 10)){return(tibble::tibble())
+    print(paste(.y,":has less than 10 samples."))}
   
   .d %>% 
     dplyr::group_by(symbol, gene) %>% 
@@ -89,16 +95,16 @@ fun_compare <- function(.x, .y ){
           estimate > 0 ~ 0, # normal high
           estimate < 0 ~ 1 # tumor high
         )) %>% 
-    dplyr::select(symbol, gene, direction, p_val = p.value, fdr) -> .d_out
+    dplyr::select(symbol, gene, direction, p_val = p.value, fdr,estimate) -> .d_out
   
-  # draw every pic
-  .d %>%
-    dplyr::semi_join(.d_out, by = c("symbol", "gene")) %>%
-    # dplyr::filter(symbol %in% c("ATP6V0D1", "ATP6V0A4")) %>%
-    tidyr::nest(-symbol, -gene) %>%
-    dplyr::mutate(fig_name = paste(.y, symbol, sep = "_")) %>% 
-    dplyr::select(fig_name, data) %>% 
-    purrr::pwalk(.f = fun_boxplot, path = methy_box)
+  # draw every pic, I have draw it, so annotate it to get data again.
+  # .d %>%
+  #   dplyr::semi_join(.d_out, by = c("symbol", "gene")) %>%
+  #   # dplyr::filter(symbol %in% c("ATP6V0D1", "ATP6V0A4")) %>%
+  #   tidyr::nest(-symbol, -gene) %>%
+  #   dplyr::mutate(fig_name = paste(.y, symbol, sep = "_")) %>% 
+  #   dplyr::select(fig_name, data) %>% 
+  #   purrr::pwalk(.f = fun_boxplot, path = methy_box)
   
   return(.d_out)
 }
@@ -129,18 +135,45 @@ gene_list_methy %>%
   dplyr::select(-filter_methy) %>% 
   tidyr::unnest() -> gene_list_methy_fdr
 on.exit(parallel::stopCluster(cluster))
-readr::write_rds(gene_list_methy_fdr, path = file.path(methy_path, ".rds_02_gene_list_methy_fdr.rds.gz"), compress = "gz")
 
+readr::write_rds(gene_list_methy_fdr, path = file.path(methy_path, ".rds_02_gene_list_methy_fdr.rds.gz"), compress = "gz")
+readr::write_tsv(gene_list_methy_fdr, path = file.path(methy_path, "tsv_02_gene_list_methy_fdr.tsv"))
 
 gene_list_methy_fdr %>% 
   dplyr::mutate(fdr = -log10(fdr)) %>% 
-  dplyr::mutate(fdr = ifelse(fdr > 50, 50, fdr)) -> plot_ready
-  
+  dplyr::mutate(fdr = ifelse(fdr > 50, 50, fdr)) %>%
+  dplyr::mutate(Direction = ifelse(direction > 0, "Up", "Down"))-> plot_ready
+
+plot_ready %>%
+  dplyr::mutate(dir_a = ifelse(direction < 1, -1, direction)) %>%
+  dplyr::group_by(symbol) %>%
+  dplyr::summarise(rank = sum(dir_a)) %>% 
+  dplyr::left_join(gene_list, by = "symbol") %>%
+  dplyr::mutate(color = plyr::revalue(functionWithImmune, replace = c('TwoSide' = "blue", "Inhibit" = "red", "Activate" = "green"))) %>% 
+  dplyr::mutate(size = plyr::revalue(type,replace = c('Receptor'="bold.italic",'Ligand'="plain"))) %>%
+  dplyr::arrange(rank) ->gene_rank
+
+plot_ready %>%
+  dplyr::mutate(dir_a = ifelse(direction < 1, -1, direction)) %>%
+  dplyr::group_by(symbol) %>%
+  dplyr::summarise(rank = sum(dir_a)) %>% 
+  dplyr::left_join(gene_list, by = "symbol") %>%
+  dplyr::mutate(color = plyr::revalue(functionWithImmune, replace = c('TwoSide' = "blue", "Inhibit" = "red", "Activate" = "green"))) %>% 
+  dplyr::mutate(size = plyr::revalue(type,replace = c('Receptor'="bold.italic",'Ligand'="plain"))) %>%
+  dplyr::arrange(rank) ->gene_rank
+gene_rank$size %>% as.character() ->gene_rank$size
+gene_rank$color %>% as.character()-> gene_rank$color
+plot_ready %>% 
+  dplyr::mutate(dir_a = ifelse(direction < 1, -1, direction)) %>%
+  dplyr::group_by(cancer_types) %>% 
+  dplyr::summarise(s = sum(dir_a)) %>% 
+  dplyr::arrange(dplyr::desc(s)) -> cancer_rank
+
 plot_ready %>% 
   ggplot(aes(x = cancer_types, y = symbol)) +
-  geom_point(aes(size = fdr, color = as.factor(direction))) +
-  # scale_x_discrete(limit = cancer_rank$cancer_types) +
-  # scale_y_discrete(limit = gene_rank$symbol) +
+  geom_point(aes(size = fdr, color = Direction)) +
+  scale_x_discrete(limit = cancer_rank$cancer_types) +
+  scale_y_discrete(limit = gene_rank$symbol) +
   scale_size_continuous(name = "FDR") +
   theme(
     panel.background = element_rect(colour = "black", fill = "white"),
@@ -153,15 +186,21 @@ plot_ready %>%
     
     axis.title = element_blank(),
     axis.ticks = element_line(color = "black"),
-    # axis.text.y = element_text(color = gene_rank$color),
+    axis.text.x = element_text(angle = 45,vjust=1,hjust = 1),
+    axis.text.y = element_text(color = gene_rank$color,face = gene_rank$size),
     
     legend.text = element_text(size = 12),
     legend.title = element_text(size = 14),
-    legend.key = element_rect(fill = "white", colour = "black")
-  ) 
+#    legend.direction = "horizontal",
+    legend.key = element_rect(fill = "white", colour = "black") 
+  ) +
+  ggthemes::scale_color_gdocs(name = "M(Tumor)\n—————\nM(Normal)") ->p
+ggsave(filename = 'methy_direction.pdf', plot = p, device = "pdf", 
+       path = methy_path, width = 8, height = 8)
 
 
 #
 save.image(file = file.path(methy_path, ".rda_02_methy_a_gene_list.rda"))
+rm(list=ls())
 load(file = file.path(methy_path, ".rda_02_methy_a_gene_list.rda"))
 

@@ -142,15 +142,18 @@ cancer_rank <- pattern %>% fun_rank_cancer()
 gene_rank <- pattern %>% 
   fun_rank_gene() %>% 
   dplyr::left_join(gene_list, by = "symbol") %>% 
-  dplyr::mutate(color = plyr::revalue(functionWithImmune,replace = c('TwoSide' = "blue", "Inhibit" = "red", "Activate" = "green")))
+  dplyr::mutate(color = plyr::revalue(functionWithImmune,replace = c('TwoSide' = "blue", "Inhibit" = "red", "Activate" = "green"))) %>%
+  dplyr::mutate(size = plyr::revalue(type,replace = c('Receptor'="bold.italic",'Ligand'="plain"))) %>%
+  dplyr::arrange(color, rank)
 gene_rank$color %>% as.character() ->gene_rank$color
+gene_rank$size %>% as.character() ->gene_rank$size
 
 expr_subtype_sig_pval %>% 
   ggplot(aes(x = cancer_types, y = symbol, color = cancer_types)) +
   geom_point(aes(size = -log10(p.value))) +
   scale_x_discrete(limit = cancer_rank$cancer_types) +
   scale_y_discrete(limit = gene_rank$symbol) +
-  scale_size_continuous(name = "-log10(p.value)") +
+  scale_size_continuous(name = "-Log10(p.value)") +
   theme(
     panel.background = element_rect(colour = "black", fill = "white"),
     panel.grid = element_line(colour = "grey", linetype = "dashed"),
@@ -162,7 +165,7 @@ expr_subtype_sig_pval %>%
     
     axis.title = element_blank(),
     axis.ticks = element_line(color = "black"),
-    axis.text.y = element_text(color = gene_rank$color),
+    axis.text.y = element_text(color = gene_rank$color,face=gene_rank$size),
     
     legend.text = element_text(size = 12),
     legend.title = element_text(size = 14),
@@ -213,12 +216,20 @@ fun_draw_boxplot <- function(cancer_types, merged_clean, symbol, p.value, fdr){
     max() ->max_exp
   merged_clean %>% 
     dplyr::filter(symbol == gene) %>% 
+    dplyr::mutate( expr = log2(expr)) %>% 
+    dplyr::filter(expr != "-Inf") %>%
+    dplyr::select(expr) %>%
+    min() ->min_exp
+  merged_clean %>% 
+    dplyr::filter(symbol == gene) %>% 
     dplyr::mutate(expr = log2(expr)) %>% 
     dplyr::arrange(subtype) %>% 
     ggpubr::ggboxplot(x = "subtype", y = "expr",  color = "subtype", pallete = "jco"  ) +
     theme(legend.position = "none") +
     ggpubr::stat_compare_means(comparisons = comp_list, method = "t.test") + 
-    ggpubr::stat_compare_means(method = "kruskal.test",label.y = max_exp+6,label.x=1,label.sep = "\n") +
+    ylim(min_exp-1,max_exp+6) +
+    #ggpubr::stat_compare_means(method = "kruskal.test",label.y = max_exp+6,label.x=1,label.sep = "\n") +
+    geom_text(label = paste("Oneway.test:" ,"\n","p=",signif(p.value,3),sep=""),x=1,y=max_exp+5,size=3)+
     labs(x  = "", y = "Expression (log2 RSEM)") +
     geom_text(label=paste(cancer_types,gene,sep="\n"),x =title.pos.x,y=max_exp+6,size=4,colour="black")+
     ggthemes::scale_color_gdocs() -> p

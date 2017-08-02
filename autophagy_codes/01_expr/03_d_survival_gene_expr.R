@@ -1,14 +1,19 @@
 library(magrittr)
 library(ggplot2)
 
-expr_path <- "/home/cliu18/liucj/projects/6.autophagy/02_autophagy_expr/"
-survival_path <- file.path(expr_path, "03_d_survival")
-tcga_path <- "/home/cliu18/liucj/projects/6.autophagy/TCGA"
-expr_path <- file.path(expr_path, "03_a_gene_expr")
+expr_path <- "S:/study/生存分析/免疫检查点project/result"
+survival_path <- file.path(expr_path, "4.survival")
+tcga_path <- "S:/study/生存分析/免疫检查点project/liucj_tcga_process_data"
+expr_path <- file.path(expr_path, "all_expr")
 
-clinical <- readr::read_rds(path = file.path(tcga_path,"pancan_clinical.rds.gz")) 
+clinical <- readr::read_rds(path = file.path(tcga_path,"pancan34_clinical.rds.gz")) 
 
-gene_list <- readr::read_rds(file.path(expr_path, "rds_03_a_atg_lys_gene_list.rds.gz"))
+gene_list_path <- "S:/study/生存分析/免疫检查点project/免疫检查点"
+gene_list <- read.table(file.path(gene_list_path, "all.entrez_id-gene_id"),header=T)
+gene_list$symbol %>% as.character() ->gene_list$symbol
+gene_type<-read.table(file.path(gene_list_path,"checkpoint.type"),header=T)
+gene_list<-dplyr::left_join(gene_list,gene_type,by="symbol")
+#gene_list <- readr::read_rds(file.path(expr_path, "rds_03_a_atg_lys_gene_list.rds.gz"))
 gene_list_expr <- readr::read_rds(path = file.path(expr_path, ".rds_03_a_gene_list_expr.rds.gz"))
 cancer_pairs <- readr::read_tsv(file = file.path(expr_path, "tsv_02_pancan_samples_pairs.tsv"))
 
@@ -65,15 +70,23 @@ fun_draw_survival <- function(symbol, p.value, cancer_types, expr_clinical_ready
   
   kmp <- 1 - pchisq(.d_diff$chisq, df = length(levels(as.factor(.d$group))) - 1)
   
-  if(kmp > 0.05) {return(NA)} else{
-    fit_x <- survival::survfit(survival::Surv(time, status) ~ group, data = .d , na.action = na.exclude)
-    survminer::ggsurvplot(fit_x, data = .d, pval=T, pval.method = T,
-               title = paste(paste(cancer_types, gene, sep = "-"), "Coxph =", signif(p.value, 2)),
-               xlab = "Survival in days",
-               ylab = 'Probability of survival')
-    ggsave(filename = fig_name, device = "pdf", path = file.path(survival_path, "boxplot"), width = 6, height = 6)
+  if(p.value > 0.05) {return(NA)} else{
+   # fit_x <- survival::survfit(survival::Surv(time, status) ~ group, data = .d, na.action = na.exclude)
+    survival::survfit(survival::Surv(time, status) ~ group, data = .d, na.action = na.exclude) %>%
+     survminer::ggsurvplot(pval=F, #pval.method = T,
+                          main = paste(paste(cancer_types, gene, sep = "-"), "Coxph =", signif(p.value, 2)),
+                          xlab = "Survival in days",
+                          ylab = 'Probability of survival',
+                          legend.title = "Expression group:",
+                          legend= c(0.15,0.2)
+    )
+    #+ggplot2::annotate("text",
+     #                        x = 100, y = 0.2,
+      #                       label = paste("Log-rank P=",kmp), size = 5)
+    ggsave(filename = fig_name, device = "pdf", path = file.path(survival_path, "plot"), width = 6, height = 4.5)
   }
 }
+
 fun_clinical_test <- function(expr_clinical_ready, cancer_types){
   if(nrow(expr_clinical_ready) < 1){return(tibble::tibble())}
   print(cancer_types)
@@ -92,9 +105,9 @@ fun_clinical_test <- function(expr_clinical_ready, cancer_types){
     dplyr::select(symbol, estimate, p.value) %>% 
     dplyr::mutate(status = ifelse(estimate > 0, "H", "L"))-> d
   
-  d %>% 
-    dplyr::select(symbol, p.value) %>% 
-    purrr::pwalk(fun_draw_survival, cancer_types = cancer_types, expr_clinical_ready = expr_clinical_ready) 
+  d %>%
+    dplyr::select(symbol, p.value) %>%
+    purrr::pwalk(cancer_types = cancer_types, expr_clinical_ready = expr_clinical_ready, .f=fun_draw_survival)
   
   return(d)
 }
@@ -107,18 +120,18 @@ fun_clinical_test <- function(expr_clinical_ready, cancer_types){
 #   dplyr::select(-merged_clean) %>%
 #   tidyr::unnest(diff_pval) -> expr_clinical_sig_pval
 
-cl <- parallel::detectCores()
-cluster <- multidplyr::create_cluster(floor(cl * 5 / 6))
+#cl <- parallel::detectCores()
+#cluster <- multidplyr::create_cluster(floor(cl * 5 / 6))
 expr_clinical %>%
-  multidplyr::partition(cluster = cluster) %>%
-  multidplyr::cluster_library("magrittr") %>%
-  multidplyr::cluster_library("ggplot2") %>%
-  multidplyr::cluster_assign_value("fun_barcode", fun_barcode)  %>%
-  multidplyr::cluster_assign_value("fun_tn_type", fun_tn_type) %>% 
-  multidplyr::cluster_assign_value("fun_expr_survival_merge", fun_expr_survival_merge) %>% 
-  multidplyr::cluster_assign_value("fun_clinical_test", fun_clinical_test) %>% 
-  multidplyr::cluster_assign_value("fun_draw_survival", fun_draw_survival) %>% 
-  multidplyr::cluster_assign_value("survival_path", survival_path) %>% 
+  # multidplyr::partition(cluster = cluster) %>%
+  # multidplyr::cluster_library("magrittr") %>%
+  # multidplyr::cluster_library("ggplot2") %>%
+  # multidplyr::cluster_assign_value("fun_barcode", fun_barcode)  %>%
+  # multidplyr::cluster_assign_value("fun_tn_type", fun_tn_type) %>% 
+  # multidplyr::cluster_assign_value("fun_expr_survival_merge", fun_expr_survival_merge) %>% 
+  # multidplyr::cluster_assign_value("fun_clinical_test", fun_clinical_test) %>% 
+  # multidplyr::cluster_assign_value("fun_draw_survival", fun_draw_survival) %>% 
+  # multidplyr::cluster_assign_value("survival_path", survival_path) %>% 
   dplyr::mutate(merged_clean = purrr::map2(filter_expr, clinical, fun_expr_survival_merge)) %>%
   dplyr::select(-filter_expr, -clinical) %>%
   dplyr::mutate(diff_pval = purrr::map2(merged_clean, cancer_types, fun_clinical_test)) %>%
@@ -126,10 +139,12 @@ expr_clinical %>%
   dplyr::collect() %>%
   dplyr::as_tibble() %>%
   dplyr::ungroup() %>%
-  dplyr::select(-PARTITION_ID) %>% 
+  #dplyr::select(-PARTITION_ID) %>% 
   tidyr::unnest(diff_pval) -> expr_clinical_sig_pval
-on.exit(parallel::stopCluster(cluster))
-
+#on.exit(parallel::stopCluster(cluster))
+readr::write_tsv(
+  x=expr_clinical_sig_pval,
+  path=file.path(survival_path,"tsv_03_survival_coxpva.tsv"))
 #---------------------------------------------------------------------------------------------
 
 fun_rank_cancer <- function(pattern){
@@ -155,21 +170,27 @@ expr_clinical_sig_pval %>%
   dplyr::mutate(n = 1) %>% 
   tidyr::spread(key = cancer_types, value = n) -> pattern
 
-cancer_rank <- pattern %>% fun_rank_cancer()
+cancer_rank <- 
+  pattern %>% fun_rank_cancer() %>%
+  dplyr::filter( rank >= 2) 
 gene_rank <- 
   pattern %>% 
   fun_rank_gene() %>% 
   dplyr::left_join(gene_list, by = "symbol") %>% 
-  dplyr::filter( rank >= 5) %>% 
-  dplyr::mutate(color = plyr::revalue(status, replace = c('a' = "#e41a1c", "l" = "#377eb8", "i" = "#4daf4a", "p" = "#984ea3"))) %>% 
+  #dplyr::filter( rank >= 5) %>% 
+  dplyr::mutate(color = plyr::revalue(functionWithImmune, replace = c('TwoSide' = "blue", "Inhibit" = "red", "Activate" = "green"))) %>% 
+  dplyr::mutate(size = plyr::revalue(type,replace = c('Receptor'="bold.italic",'Ligand'="plain"))) %>% 
   dplyr::arrange(color, rank)
+gene_rank$color %>% as.character() ->gene_rank$color
+gene_rank$size %>% as.character() ->gene_rank$size
 
 expr_clinical_sig_pval %>% 
   ggplot(aes(x = cancer_types, y = symbol, color = status)) +
   geom_point(aes(size = -log10(p.value))) +
+  #scale_size(range = c(1.3, 10)) +
   scale_x_discrete(limit = cancer_rank$cancer_types) +
   scale_y_discrete(limit = gene_rank$symbol) +
-  scale_size_continuous(name = "P-value") +
+  scale_size_continuous(name = "-log10(P-value)") +
   theme(
     panel.background = element_rect(colour = "black", fill = "white"),
     panel.grid = element_line(colour = "grey", linetype = "dashed"),
@@ -178,21 +199,20 @@ expr_clinical_sig_pval %>%
       linetype = "dashed",
       size = 0.2
     ),
-    
     axis.title = element_blank(),
     axis.ticks = element_line(color = "black"),
-    axis.text.y = element_text(color = gene_rank$color),
-    
+    axis.text.y = element_text(color = gene_rank$color,face=gene_rank$size),
+    axis.text.x = element_text(angle = 315, hjust = 0,vjust=1),
     legend.text = element_text(size = 12),
     legend.title = element_text(size = 14),
     legend.key = element_rect(fill = "white", colour = "black")
   ) +
-  ggthemes::scale_color_gdocs(name = "Surivival Worse")-> p
+  ggthemes::scale_color_gdocs(name = "Surivival Worse")-> p;p
 ggsave(
   filename = "fig_03_d_survival_sig_genes_serminar.pdf",
   plot = p,
   device = "pdf",
-  width = 14,
+  width = 9,
   height = 9,
   path = survival_path
 )

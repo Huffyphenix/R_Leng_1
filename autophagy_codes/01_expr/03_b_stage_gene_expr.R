@@ -102,13 +102,13 @@ fun_stage_test <- function(expr_stage_ready){
 cl <- parallel::detectCores()
 cluster <- multidplyr::create_cluster(floor(cl * 5 / 6))
 expr_stage %>%
-  multidplyr::partition(cluster = cluster) %>%
-  multidplyr::cluster_library("magrittr") %>%
-  multidplyr::cluster_assign_value("fun_barcode", fun_barcode)  %>%
-  multidplyr::cluster_assign_value("fun_tn_type", fun_tn_type) %>% 
-  multidplyr::cluster_assign_value("fun_expr_stage_merge", fun_expr_stage_merge) %>% 
-  multidplyr::cluster_assign_value("fun_stage_test", fun_stage_test) %>% 
-  multidplyr::cluster_assign_value("fn_get_order", fn_get_order) %>% 
+  # multidplyr::partition(cluster = cluster) %>%
+  # multidplyr::cluster_library("magrittr") %>%
+  # multidplyr::cluster_assign_value("fun_barcode", fun_barcode)  %>%
+  # multidplyr::cluster_assign_value("fun_tn_type", fun_tn_type) %>% 
+  # multidplyr::cluster_assign_value("fun_expr_stage_merge", fun_expr_stage_merge) %>% 
+  # multidplyr::cluster_assign_value("fun_stage_test", fun_stage_test) %>% 
+  # multidplyr::cluster_assign_value("fn_get_order", fn_get_order) %>% 
   dplyr::mutate(merged_clean = purrr::map2(filter_expr, stage, fun_expr_stage_merge)) %>% 
   dplyr::select(-filter_expr, -stage) %>% 
   dplyr::mutate(diff_pval = purrr::map(merged_clean, fun_stage_test)) %>% 
@@ -163,13 +163,16 @@ gene_rank <- pattern %>%
   fun_rank_gene() %>% 
   dplyr::left_join(gene_list, by = "symbol") %>% 
   dplyr::mutate(color = plyr::revalue(functionWithImmune, replace = c('TwoSide' = "blue", "Inhibit" = "red", "Activate" = "green"))) %>%
+  dplyr::mutate(size = plyr::revalue(type,replace = c('Receptor'="bold.italic",'Ligand'="plain"))) %>%
   dplyr::arrange(color, rank)
+gene_rank$color %>% as.character() ->gene_rank$color
+gene_rank$size %>% as.character() ->gene_rank$size
+
 
 expr_stage_sig_pval %>% 
   ggplot(aes(x = cancer_types, y = symbol, color = cancer_types)) +
   geom_point(aes(size = -log10(p.value))) +
   scale_x_discrete(limit = cancer_rank$cancer_types) +
-  scale_y_discrete(limit = gene_rank$symbol) +
   scale_size_continuous(
     limit = c(-log10(0.05), 15),
     range = c(1, 6),
@@ -188,7 +191,7 @@ expr_stage_sig_pval %>%
     
     axis.title = element_blank(),
     axis.ticks = element_line(color = "black"),
-    axis.text.y = element_text(color = gene_rank$color),
+    axis.text.y = element_text(color = gene_rank$color,face=gene_rank$size),
     
     legend.text = element_text(size = 12),
     legend.title = element_text(size = 14),
@@ -223,14 +226,22 @@ fun_draw_boxplot <- function(cancer_types, merged_clean, symbol, p.value, fdr){
     max() ->max_exp
   merged_clean %>% 
     dplyr::filter(symbol == gene) %>% 
+    dplyr::mutate( expr = log2(expr)) %>% 
+    dplyr::filter(expr != "-Inf") %>%
+    dplyr::select(expr) %>%
+    min() ->min_exp
+  merged_clean %>% 
+    dplyr::filter(symbol == gene) %>% 
     dplyr::mutate(expr = log2(expr)) %>% 
     dplyr::arrange(stage) %>% 
     ggpubr::ggboxplot(x = "stage", y = "expr",  color = "stage", pallete = "jco"  ) +
     theme(legend.position="none")+
     ggpubr::stat_compare_means(comparisons = comp_list, method = "t.test") + 
-    ggpubr::stat_compare_means(method = "anova", label.y = max_exp+6) +
+    ylim(min_exp-1,max_exp+6) +
+    #ggpubr::stat_compare_means(method = "anova", label.y = max_exp+6) +
     labs(x  = "", y = "Expression (log2 RSEM)") +
     geom_text(label = paste(cancer_types,gene,sep=", "),x=3.5,y=max_exp+6,size=4.5,colour="black")+
+    geom_text(label = paste("Oneway.test:" ,"\n","p=",signif(p.value,3),sep=""),x=1,y=max_exp+5,size=3)+
     ggthemes::scale_color_gdocs() -> p
     ggsave(filename = fig_name, plot = p, path = file.path(stage_path, "boxplot"), width = 4, height = 3,  device = "pdf")
 }
@@ -255,14 +266,20 @@ fun_draw_boxplot_filter <- function(cancer_types, merged_clean, symbol, p.value,
       dplyr::select(expr) %>%
       max() ->max_exp
     d %>% 
+      dplyr::filter(symbol == gene) %>%
+      dplyr::select(expr) %>%
+      min() ->min_exp
+    d %>% 
       ggpubr::ggboxplot(x = "stage", y = "expr",  color = "stage", pallete = "jco"  ) +
       theme(legend.position="none")+
+      ylim(min_exp-1,max_exp+6) +
       ggpubr::stat_compare_means(comparisons = comp_list, method = "t.test") + 
-      ggpubr::stat_compare_means(method = "anova", label.y = max_exp+5) +
+      #ggpubr::stat_compare_means(method = "anova", label.y = max_exp+5) +
       labs(x  = "", y = "Expression (log2 RSEM)") +
       geom_text(label = paste(cancer_types,gene,sep=", "),x=3.5,y=max_exp+5,size=4.5,colour="black")+
+      geom_text(label = paste("Oneway.test:" ,"\n","p=",signif(p.value,3),sep=""),x=1,y=max_exp+5,size=3)+
       ggthemes::scale_color_gdocs() -> p
-      ggsave(filename = fig_name, plot = p, path = file.path(stage_path, "boxplot"), width = 4, height = 3,  device = "pdf")
+      ggsave(filename = fig_name, plot = p, path = file.path(stage_path, "boxplot-filter"), width = 4, height = 3,  device = "pdf")
   } else{
     print(fig_name)
   }
