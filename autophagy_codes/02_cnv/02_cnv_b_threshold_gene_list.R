@@ -449,6 +449,7 @@ fn_mut_exc_filter <- function(cancer_types, comet, filter_cnv){
   # filter_cnv <- te$filter_cnv[[1]]
   
   comet %>% 
+    dplyr::select(g1, g2, fdr, p_val) %>%
     purrr::pmap(.f = fn_mut_exc_draw, filter_cnv = filter_cnv, cancer_types = cancer_types) %>% 
     dplyr::bind_rows()
 }
