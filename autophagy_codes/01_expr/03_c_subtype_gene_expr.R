@@ -144,7 +144,7 @@ gene_rank <- pattern %>%
   dplyr::left_join(gene_list, by = "symbol") %>% 
   dplyr::mutate(color = plyr::revalue(functionWithImmune,replace = c('TwoSide' = "blue", "Inhibit" = "red", "Activate" = "green"))) %>%
   dplyr::mutate(size = plyr::revalue(type,replace = c('Receptor'="bold.italic",'Ligand'="plain"))) %>%
-  dplyr::arrange(color, rank)
+  dplyr::arrange(rank,color)
 gene_rank$color %>% as.character() ->gene_rank$color
 gene_rank$size %>% as.character() ->gene_rank$size
 
@@ -172,7 +172,7 @@ expr_subtype_sig_pval %>%
     legend.key = element_rect(fill = "white", colour = "black")
   ) -> p;p
 ggsave(
-  filename = "fig_03_c_subtype_sig_genes.pdf",
+  filename = "fig_03_c_subtype_sig_genes-byrank.pdf",
   plot = p,
   device = "pdf",
   width = 8,
@@ -241,3 +241,4 @@ expr_subtype_sig_pval %>% purrr::pwalk(.f = fun_draw_boxplot)
 
 save.image(file = file.path(subtype_path, ".rda_03_c_subtype_gene_expr.rda"))
 load(file = file.path(subtype_path, ".rda_03_c_subtype_gene_expr.rda"))
+rm(list=ls())

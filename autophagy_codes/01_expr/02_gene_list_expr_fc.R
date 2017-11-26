@@ -44,7 +44,115 @@ expr %>%
   dplyr::mutate(filter_expr = purrr::map(expr, filter_gene_list, gene_list = gene_list)) %>%
   dplyr::select(-expr) -> gene_list_expr
 
+#################################
+# Caculate mean expr of genes in each cancer.
+##################################
+calculate_mean_expr <- function(.x, .y) {
+  .y %>%
+    tibble::add_column(cancer_types = .x, .before = 1) -> df
+  
+  # get cancer types and get # of smaple >= 10
+  samples <-
+    tibble::tibble(barcode = colnames(df)[-c(1:3)]) %>%
+    dplyr::mutate(
+      sample = stringr::str_sub(
+        string = barcode,
+        start = 1,
+        end = 12
+      ),
+      type = stringr::str_split(barcode, pattern = "-", simplify = T)[, 4] %>% stringr::str_sub(1, 2)
+    ) %>%
+    dplyr::filter(type %in% c("01", "11")) %>%
+    dplyr::mutate(type = plyr::revalue(
+      x = type,
+      replace = c("01" = "Tumor", "11" = "Normal"),
+      warn_missing = F
+    )) %>%
+    dplyr::group_by(sample) %>%
+    dplyr::filter(n() >= 2, length(unique(type)) == 2) %>%
+    dplyr::ungroup()
+  sample_type_summary <- table(samples$type) %>% as.numeric()
+  if (gtools::invalid(sample_type_summary) ||
+      any(sample_type_summary < c(10, 10))) {
+    return(NULL)
+  }
+  
+  # filter out cancer normal pairs
+  df_f <-
+    df %>%
+    dplyr::select(c(1, 2, 3), samples$barcode) %>%
+    tidyr::gather(key = barcode, value = expr, -c(1, 2, 3)) %>%
+    dplyr::left_join(samples, by = "barcode")
+  #mean exp
+  df_f %>%
+    dplyr::group_by(cancer_types, symbol, type) %>%
+    tidyr::drop_na(expr) %>%
+    dplyr::summarise(mean=mean(expr))%>%
+    dplyr::ungroup() ->df_mean_exp
+  return(df_mean_exp)
+}
 
+purrr::map2(.x = gene_list_expr$cancer_types,
+            .y = gene_list_expr$filter_expr,
+            .f = calculate_mean_expr) -> gene_mean_exp
+names(gene_mean_exp) <- gene_list_expr$cancer_types
+gene_mean_exp %>% dplyr::bind_rows() -> gene_mean_exp_simplified
+readr::write_rds(
+  x = gene_mean_exp_simplified,
+  path = file.path(out_path, "rds_01_gene_list_mean_exp_simplified.rds.gz"),
+  compress = "gz"
+)
+readr::write_tsv(
+  x = gene_mean_exp_simplified,
+  path = file.path(out_path, "tsv_01_gene_list_mean_exp_simplified.tsv")
+)
+###############
+#Draw pictures
+################
+gene_mean_exp_simplified %>%
+  dplyr::mutate(type = as.factor(type)) %>% 
+  dplyr::mutate(type = plyr::revalue(type, replace = c("Normal" = "N", "Tumor" = "T"))) %>%
+  tidyr::unite(col = symbol, symbol, type) ->gene_mean_exp_simplified_plot
+#heat map
+ggplot(gene_mean_exp_simplified_plot,
+       aes(x = symbol, y = cancer_types, fill = log2(mean))) +
+  geom_tile(color = "black") +
+  scale_fill_gradient2(
+    low = "blue",
+    mid = "white",
+    high = "red",
+    midpoint = 0,
+    na.value = "white",
+    breaks = seq(-5, 15, length.out = 5),
+    #labels = c("<= -3", "-1.5", "0", "1.5", ">= 3"),
+    name = "log2(MeanExp)"
+  ) +
+  #scale_y_discrete(limit = gene_rank$symbol) +
+  scale_y_discrete(limit = cancer_types_rank$cancer_types, expand = c(0, 0)) +
+  theme(
+    panel.background = element_rect(colour = "black", fill = "white"),
+    panel.grid = element_blank(),
+    axis.title = element_blank(),
+    axis.ticks = element_blank(),
+   # axis.text.y = element_text(color = gene_rank$color,face=gene_rank$size),
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 12),
+    legend.key = element_rect(fill = "white", colour = "black"),
+    axis.text.x = element_text(angle = 270, hjust = 0,vjust=0.5)
+  ) -> p;p
+ggsave(
+  filename = "fig_01_mean_expr_pattern.pdf",
+  plot = p,
+  device = "pdf",
+  width = 15,
+  height = 6,
+  path = out_path
+)
+readr::write_rds(
+  p,
+  path = file.path(out_path, "fig_01_mean_expr_pattern.pdf.rds.gz"),
+  compress = "gz"
+)
 #################################
 # Caculate p-value and fold-change.
 ##################################
@@ -178,15 +286,21 @@ gene_expr_pattern %>%
   dplyr::arrange(rank) %>% 
   dplyr::left_join(gene_list, by = "symbol") %>% 
   dplyr::mutate(color = plyr::revalue(x = functionWithImmune, replace = c("Inhibit" = "red", "Activate" = "green", "TwoSide"="blue"))) %>% 
-  dplyr::select(symbol, rank, up, down, type, color) -> gene_rank
+  dplyr::mutate(size = plyr::revalue(type,replace = c('Receptor'="bold.italic",'Ligand'="plain"))) %>%
+  dplyr::select(symbol, rank, up, down, type, color,size) -> gene_rank
+
 
 gene_expr_pattern %>%
-  dplyr::summarise_if(.predicate = is.numeric, dplyr::funs(sum(abs(.)))) %>%
+  dplyr::summarise_if(.predicate = is.numeric, dplyr::funs(sum(.))) %>%
   tidyr::gather(key = cancer_types, value = rank) %>%
   dplyr::arrange(-rank) -> cancer_types_rank
 
 library(ggplot2)
 gene_rank$color %>% as.character() ->gene_rank$color
+gene_rank$size %>% as.character() ->gene_rank$size
+#####################
+#heat map
+####################
 ggplot(gene_list_fc_pvalue_simplified_filter,
        aes(x = cancer_types, y = symbol, fill = log2(fc))) +
   geom_tile(color = "black") +
@@ -207,7 +321,7 @@ ggplot(gene_list_fc_pvalue_simplified_filter,
     panel.grid = element_blank(),
     axis.title = element_blank(),
     axis.ticks = element_blank(),
-    axis.text.y = element_text(color = gene_rank$color),
+    axis.text.y = element_text(color = gene_rank$color,face=gene_rank$size),
     legend.text = element_text(size = 10),
     legend.title = element_text(size = 12),
     legend.key = element_rect(fill = "white", colour = "black"),
@@ -226,13 +340,14 @@ readr::write_rds(
   path = file.path(out_path, "fig_01_expr_pattern.pdf.rds.gz"),
   compress = "gz"
 )
-
-
-ggplot(gene_list_fc_pvalue_simplified_filter,
-       aes(x = cancer_types, y = symbol)) +
-  geom_point(aes(size = p.value, col = log2(fc))) +
- # geom_point(stroke=1)+
-  scale_color_gradient2(
+################
+#receptor and ligand heatmap
+################
+gene_list_fc_pvalue_simplified_filter %>%
+  dplyr::filter(symbol %in% c("TNFRSF4","TNFSF4","TNFRSF9","TNFSF9","CTLA4","CD80","CD86")) %>%
+  ggplot(aes(x = cancer_types, y = symbol, fill = log2(fc))) +
+  geom_tile(color = "black") +
+  scale_fill_gradient2(
     low = "blue",
     mid = "white",
     high = "red",
@@ -242,36 +357,27 @@ ggplot(gene_list_fc_pvalue_simplified_filter,
     labels = c("<= -3", "-1.5", "0", "1.5", ">= 3"),
     name = "log2(FC)"
   ) +
-  scale_size_continuous(
-    limit = c(-log10(0.1), 15),
-    range = c(1, 6),
-    breaks = c(-log10(0.1),-log10(0.05), 5, 10, 15),
-    labels = c("0.1","0.05", latex2exp::TeX("$10^{-5}$"), latex2exp::TeX("$10^{-10}$"), latex2exp::TeX("$< 10^{-15}$"))
-  ) +
-  scale_y_discrete(limit = gene_rank$symbol) +
-  scale_x_discrete(limit = cancer_types_rank$cancer_types) +
+  scale_y_discrete(limit = c("TNFRSF4","TNFSF4","TNFRSF9","TNFSF9","CTLA4","CD80","CD86")) +
+  scale_x_discrete(limit = cancer_types_rank$cancer_types, expand = c(0, 0)) +
   theme(
     panel.background = element_rect(colour = "black", fill = "white"),
-    panel.grid = element_line(colour = "grey", linetype = "dashed"),
-    panel.grid.major = element_line(
-      colour = "grey",
-      linetype = "dashed",
-      size = 0.2
-    ),
-    axis.text.y = element_text(color = gene_rank$color),
+    panel.grid = element_blank(),
     axis.title = element_blank(),
-    axis.ticks = element_line(color = "black"),
-    legend.text = element_text(size = 12),
-    legend.title = element_text(size = 14),
+    axis.ticks = element_blank(),
+    axis.text.y = element_text(color = c("green","green","green","green","red","blue","blue"),
+                               face=c("bold.italic","plain","bold.italic","plain","bold.italic","plain","plain")),
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 12),
     legend.key = element_rect(fill = "white", colour = "black"),
     axis.text.x = element_text(angle = 315, hjust = 0,vjust=1)
   ) -> p;p
+
 ggsave(
-  filename = "fig_02_expr_pattern_fc_pval.pdf",
+  filename = "fig_02_ligand-receptor_heatmap.pdf",
   plot = p,
   device = "pdf",
   width = 6,
-  height = 6,
+  height = 3,
   path = out_path
 )
 readr::write_rds(
@@ -281,7 +387,9 @@ readr::write_rds(
 )
 
 
-
+###########################
+#point and heat map
+###########################
 ggplot(
   dplyr::mutate(
     gene_list_fc_pvalue_simplified_filter,
@@ -307,7 +415,7 @@ ggplot(
     ),
     panel.grid.major = element_line(linetype = "dashed", color = "lightgray"),
     axis.title = element_blank(),
-    axis.text.y = element_text(color = gene_rank$color,size = 16),
+    axis.text.y = element_text(color = gene_rank$color,face=gene_rank$size,size = 16),
     axis.text.x = element_text(size = 16),
     axis.ticks.x = element_blank(),
     legend.text = element_text(size = 12),

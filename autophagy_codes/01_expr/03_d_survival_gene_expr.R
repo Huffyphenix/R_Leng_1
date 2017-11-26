@@ -170,9 +170,15 @@ expr_clinical_sig_pval %>%
   dplyr::mutate(n = 1) %>% 
   tidyr::spread(key = cancer_types, value = n) -> pattern
 
-cancer_rank <- 
-  pattern %>% fun_rank_cancer() %>%
-  dplyr::filter( rank >= 2) 
+# cancer_rank <- 
+#   pattern %>% fun_rank_cancer() %>%
+#   dplyr::filter( rank >= 2) 
+expr_clinical_sig_pval %>%
+  dplyr::mutate(status.a=ifelse(status=="L",-1,1)) %>%
+  dplyr::group_by(cancer_types) %>%
+  dplyr::summarise(rank = sum(status.a)) %>%
+  dplyr::arrange(rank) %>%
+  dplyr::filter(abs(rank)>2)->cancer_rank
 gene_rank <- 
   pattern %>% 
   fun_rank_gene() %>% 
@@ -181,6 +187,14 @@ gene_rank <-
   dplyr::mutate(color = plyr::revalue(functionWithImmune, replace = c('TwoSide' = "blue", "Inhibit" = "red", "Activate" = "green"))) %>% 
   dplyr::mutate(size = plyr::revalue(type,replace = c('Receptor'="bold.italic",'Ligand'="plain"))) %>% 
   dplyr::arrange(color, rank)
+expr_clinical_sig_pval %>%
+  dplyr::mutate(status.a=ifelse(status=="L",-1,1)) %>%
+  dplyr::group_by(symbol) %>%
+  dplyr::summarise(rank = sum(status.a)) %>%
+  dplyr::left_join(gene_list, by = "symbol") %>% 
+  dplyr::mutate(color = plyr::revalue(functionWithImmune, replace = c('TwoSide' = "blue", "Inhibit" = "red", "Activate" = "green"))) %>% 
+  dplyr::mutate(size = plyr::revalue(type,replace = c('Receptor'="bold.italic",'Ligand'="plain"))) %>% 
+  dplyr::arrange(rank) ->gene_rank
 gene_rank$color %>% as.character() ->gene_rank$color
 gene_rank$size %>% as.character() ->gene_rank$size
 

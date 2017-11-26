@@ -191,7 +191,7 @@ gene_ai_n %>%
 
 #--------------------------------------------------------------------
 gene_rppa_sig_pval_class %>% 
-  dplyr::filter(symbol %in% c("ADORA2A","PDCD1")) %>% 
+  dplyr::filter(symbol %in% c("CTLA4","CD80","CD276","PDCD1","CD274")) %>% 
   ggplot(aes(x=cancer_types,y=pathway))+
   geom_tile(aes(fill=factor(class)),col="white")+
   scale_fill_manual(limits=c("Activation","Inhibition","None"),values = c("red","blue","lightgray"),na.value="white",labels=c("Activation","Inhibition","None"),name="")+
@@ -207,7 +207,9 @@ gene_rppa_sig_pval_class %>%
         legend.text=element_text(size=12),strip.background = element_blank(),strip.text = element_text(size=14),
         legend.title=element_text(size=10),legend.position="bottom",legend.direction="horizontal",
         legend.key.size = unit(0.3, "cm"),
-        panel.spacing = unit(0.1, "lines"))
+        panel.spacing = unit(0.1, "lines")) ->p
+ggsave(filename = "rppa_seminar-special-gene.pdf", plot = p, device = "pdf", path = rppa_path, height = 10, width = 12)
+
 
 
 

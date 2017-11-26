@@ -164,7 +164,7 @@ gene_rank <- pattern %>%
   dplyr::left_join(gene_list, by = "symbol") %>% 
   dplyr::mutate(color = plyr::revalue(functionWithImmune, replace = c('TwoSide' = "blue", "Inhibit" = "red", "Activate" = "green"))) %>%
   dplyr::mutate(size = plyr::revalue(type,replace = c('Receptor'="bold.italic",'Ligand'="plain"))) %>%
-  dplyr::arrange(color, rank)
+  dplyr::arrange(rank)
 gene_rank$color %>% as.character() ->gene_rank$color
 gene_rank$size %>% as.character() ->gene_rank$size
 
@@ -173,6 +173,7 @@ expr_stage_sig_pval %>%
   ggplot(aes(x = cancer_types, y = symbol, color = cancer_types)) +
   geom_point(aes(size = -log10(p.value))) +
   scale_x_discrete(limit = cancer_rank$cancer_types) +
+  scale_y_discrete(limit = gene_rank$symbol)+
   scale_size_continuous(
     limit = c(-log10(0.05), 15),
     range = c(1, 6),
@@ -259,8 +260,9 @@ fun_draw_boxplot_filter <- function(cancer_types, merged_clean, symbol, p.value,
     
   p_list <- ggpubr::compare_means(expr ~ stage, data = d, method = "t.test")
   
-  if(p_list %>% .$p %>% .[3] < 0.05){
-# if(p_list %>% .$p %>% .[3] < 0.05){
+#  if(p_list %>% .$p %>% .[3] < 0.05){ #stage I and IV, pvalue<0.05
+if(!is.na(p.value)){
+  if(p.value< 0.05){
     d %>% 
       dplyr::filter(symbol == gene) %>%
       dplyr::select(expr) %>%
@@ -278,17 +280,25 @@ fun_draw_boxplot_filter <- function(cancer_types, merged_clean, symbol, p.value,
       labs(x  = "", y = "Expression (log2 RSEM)") +
       geom_text(label = paste(cancer_types,gene,sep=", "),x=3.5,y=max_exp+5,size=4.5,colour="black")+
       geom_text(label = paste("Oneway.test:" ,"\n","p=",signif(p.value,3),sep=""),x=1,y=max_exp+5,size=3)+
-      ggthemes::scale_color_gdocs() -> p
-      ggsave(filename = fig_name, plot = p, path = file.path(stage_path, "boxplot-filter"), width = 4, height = 3,  device = "pdf")
+      ggthemes::scale_color_gdocs() #-> p
+      #ggsave(filename = fig_name, plot = p, path = file.path(stage_path, "boxplot-filter"), width = 4, height = 3,  device = "pdf")
   } else{
     print(fig_name)
-  }
+  }}else{
+    print(fig_name)}
 }
 
 
 expr_stage_sig_pval %>% dplyr::select(- order) %>% purrr::pwalk(.f = fun_draw_boxplot)
 expr_stage_sig_pval %>% dplyr::select(- order) %>% purrr::pwalk(.f = fun_draw_boxplot_filter)
 
-
+par(mfrow=c(3,3))
+pdf("test.pdf")
+expr_stage_sig_pval %>% dplyr::select(- order) %>%
+  dplyr::filter(symbol %in% c("CD276","BTLA","LAG3","HLA-DOB")) %>%
+  head(1) %>%
+  purrr::pwalk(.f = fun_draw_boxplot_filter)
+dev.off()
 save.image(file = file.path(stage_path, ".rda_03_b_stage_gene_expr.rda"))
+rm(list=ls())
 load(file = file.path(stage_path, ".rda_03_b_stage_gene_expr.rda"))
