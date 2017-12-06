@@ -645,3 +645,463 @@ ll /extraspace/liucj/projects/6.autophagy/
 cd /extraspace/liucj/projects/6.autophagy/
 ls
 gs
+ga -A
+gm "mirna and methylation"
+gp
+ll
+ls
+ll
+cd autophagy_codes/
+ls
+cd autophagy_codes/
+ls
+ll
+gitr
+ls
+ll
+rm iris.xlsx 
+l
+ll
+rm r2excel_test.xlsx 
+ll
+l
+ll
+rm Mutation_count.xlsx 
+l
+ll
+exit
+ls
+cd autophagy_codes/
+ls
+cd autophagy_codes/
+ls
+cd autophagy_codes/
+ls
+ll
+cd autophagy_codes/
+ls
+cd autophagy_codes/
+ls
+cd autophagy_codes/
+ls
+gs
+git add -A
+git status
+git commit -m "coca"
+git push origin master
+ll
+cd expr_matrix/
+ls
+ll
+cd autophagy_codes/
+ls
+ll
+cd autophagy_codes/
+ls
+git status
+git add -A
+git commit -m "coca+cor" 
+rm autophagy_codes/01_expr/Rplots.pdf
+ps xf
+ll
+git add -A
+git status
+git commit -m "coca + cor"
+git push origin master
+ll autophagy_codes/01_expr/Rplots.pdf
+git push origin master
+git status
+git rm autophagy_codes/01_expr/Rplots.pdf
+git log
+git revert
+git checkout master
+git checkout commit
+git log --oneline
+git checkout aaab9ac
+git status
+git log -h
+git log --oneline
+git log --oneline|head
+git checkout aaab9ac
+git checkout master
+git checkout aaab9a cautophagy_codes/01_expr/Rplots.pdf
+git checkout 3b71338 cautophagy_codes/01_expr/Rplots.pdf
+git checkout HEAD cautophagy_codes/01_expr/Rplots.pdf
+git status
+git log --oneline
+git status
+git add -A
+git status
+git commit -m "coca + corr"
+git push origin master
+ls
+cd autophagy_codes/
+ls
+ll
+cd autophagy_codes/
+l
+cd
+ls
+ll
+cd testCode/
+l
+ll
+cd testCode/
+l
+cd ../
+ls
+cd autophagy_codes/
+l
+cd ../
+ls
+git stauts
+git status
+git add autophagy_codes/01_expr/03_h_coca.R autophagy_codes/01_expr/03_h_coca_cc.R autophagy_codes/06_methylation/03_methy_a_expr.R
+git commit -m 'meth and coca_cc'
+git push origin master
+ls
+ll
+ls
+ll
+ls
+cd autophagy_codes/
+ls
+ll
+ll autophagy_codes/
+cd autophagy_codes/
+l
+git status
+git add -A
+ll
+cd autophagy_codes/
+l
+git status
+git add -A
+git status
+git commit -m "gsea"
+git push origin master
+git status
+l
+cd /home/cliu18/liucj/projects/6.autophagy/
+ls
+cd autophagy_codes/
+l
+cd autophagy_codes/
+l
+git status
+git add
+git add -A
+git status
+git commit -m "gsva gsea"
+git push origin master
+ls
+ll
+l
+cd expr_matrix/
+l
+rm expr_matrix/
+l
+ll
+cd goodRCode/
+l
+ll
+cd testCode/
+l
+ll
+l
+cd ../
+ls
+ll
+cd autophagy_codes/
+l
+git status
+ll autophagy_codes/11_cancer_stem_cell/
+git add -A 
+git commit -m "delete consensus matrix and update stem cel"
+git push origin master
+ps xf
+l
+top
+l
+cd liucj
+cd
+git status
+git add -A
+git commit -m 'gsva'
+git push origin master
+ll
+ls
+ps xf
+liucj
+find . -name .Rprofile
+cd  "/extraspace/liucj/projects/4.SNORic/database"
+ls
+git status
+git add -A
+git commit -m "05_stemness"
+git push origin master
+top
+ll
+top
+l
+git status
+git add -A
+git commit -m "stemness"
+git push origin master
+ps xf
+top
+cd autophagy_codes/
+ls
+git status
+git push -m "new gene list category"
+git add -A
+git push -m "new gene list category"
+git commit  -m "new gene list category"
+git push origin master
+ll
+l
+cd autophagy_codes/
+l
+git status
+git commit -m "gene expr"
+git add A
+git add -A
+git commit -m "summary"
+git push origin master
+ll
+git status
+l
+cd ../
+ls
+cd autophagy_codes/
+l
+find . -name "*R"
+find . -name "*R"|xargs grep cowplot
+find . -name "*R"|xargs 
+find . -name "*R"|xargs grep cowplot
+find . -name "*R"|xargs grep library
+find . -name "*R"|xargs grep cowplot
+ls
+git status
+git add -A
+git commit -m "gsva other pathway"
+git push origin master
+ps xf
+ll
+liucj
+ls
+git status
+git add -A
+git commit -m "gsva other pathway"
+git push origin master
+ls
+ps xf
+top
+ps xf
+ps xf|awk '$3=="R"'
+git status
+git commit -m "gsva othter pathway"
+git add -A
+git commit -m "gsva othter pathway"
+git push origin master
+ll
+liucj
+git status
+git add -A
+git commit -m "gsva other pahtway"
+git push origin master
+git status
+cd /extraspace/liucj/projects/6.autophagy/03_cnv/mutual_exclusive
+ls
+cd autophagy_codes/
+ls
+cd ../
+git status
+git add -A
+git commit -m 'try error'
+git push origin master
+cd
+ls
+ll
+cd autophagy_codes/
+l
+git add -A
+git commit -m "mv to afh vs afl"
+git push origin master
+git add -A
+git commit -m "mv to afh vs afl"
+git push origin master
+l
+cd autophagy_codes/
+ls
+c dau
+ls
+cd autophagy_codes/
+ls
+ll
+cd autophagy_codes/
+l
+git status
+git add -A
+git commit -m "afhl"
+git push origin master
+l
+cd ./
+l
+cd ../
+ls
+ll
+cd autophagy_codes/
+l
+cd ../
+ls
+cd autophagy_codes/
+l
+git status 
+git add -A
+git commit -m "new other pathway"
+git push origin master
+git push -f origin master
+ll autophagy_codes/01_expr/nohup.out
+git status
+ll
+du -sh *
+cd mutationInPromoter
+l
+ls
+cd ../
+ls
+la
+cd autophagy_codes/
+git status
+git add -A
+git commit -m "rm ftpconfig"
+git push origin master
+l
+cd autophagy_codes/
+ls
+git status
+git add -A
+git commit -m "afhl"
+git push origin master
+ftp ftp://ftp.ccb.jhu.edu/pub/
+lftp ftp://ftp.ccb.jhu.edu/pub/
+gitr
+ls
+find . -name "*.R"
+ps xf
+top
+ps xf
+find . -name "*.R"
+find . -name "*.R" -type f
+ll
+find .  -type f
+find .  -type f -name "*R"
+find .  -type f -name "*R"|grep -i rlang
+find .  -type f -name "*R"|xargs grep -i rlang
+find .  -type f -name "*R"|xargs grep -i cor.test
+find .  -type f -name "*R"|xargs grep -i scale_color_gradient2
+les ./autophagy_codes/01_expr/03_a_gene_expr.R
+find .  -type f -name "*R"|xargs grep -i ratio
+git status
+git add -A
+git commit -m 'afhl;
+git commit -m 'afhl'
+git push origin master
+git status
+git add -A
+git commit -m 'afhl'
+git push origin master
+l
+find .  -type f -name "*R"|xargs grep -i expand
+les ./autophagy_codes/04_ccle/02_ccle_a_drug.R
+find .  -type f -name "*R"|xargs grep -i hazard
+les ./autophagy_codes/11_cancer_stem_cell/05_stemness_analysis.R
+find .  -type f -name "*R"|xargs grep -i survminer
+les ./autophagy_codes/12_merge_summary/02_expr_gsva_score.R
+find .  -type f -name "*R"|xargs grep -i kmp
+les ./autophagy_codes/11_cancer_stem_cell/05_stemness_analysis.R
+find .  -type f -name "*R"|xargs grep -i "gridExtra::arrangeGrob"
+les ./autophagy_codes/13_afh_vs_afl/01_af_h_l_classification.R
+ls
+cd autophagy_codes/
+l
+ll
+cd autophagy_codes/
+l
+ll
+cd testCode/
+l
+ll
+cd autophagy_codes/
+l
+ll
+cd testCode/
+l
+cd autophagy_codes/
+l
+vim .gitignore 
+ll
+git status
+ggit add -A
+git add -A
+git commit -m "clinical" 
+git push origin master
+ll
+cd autophagy_codes/
+ls
+cd autophagy_codes/
+l
+cd autophagy_codes/
+ls
+git status
+git add -A
+git commit -m "proensity score"
+git push origin master
+ps xf
+kill -9 30865
+ps xf
+kill -9 30865
+cd
+ls
+cd autophagy_codes/
+l
+cat RstudioWithGit.Rproj 
+ls -al 
+cd .Rproj.user/
+ls
+ll
+l
+la
+cd .Rproj.user/
+ls
+cd autophagy_codes/
+l
+cd ../
+ls
+cd autophagy_codes/
+l
+ls
+cd autophagy_codes/
+ls
+ll
+rm fig_02_lm_rppa_p62_becn1.pdf 
+l
+ll
+rm CESC_mRNAseq_samples.txt 
+l
+ll
+cd ../
+ls
+ll
+la
+vim .gitignore 
+ls
+ll
+ls
+ll
+ps 
+ps xf
+l
+ls
+cd

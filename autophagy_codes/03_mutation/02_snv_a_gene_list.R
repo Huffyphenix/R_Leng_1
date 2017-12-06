@@ -1,4 +1,5 @@
 library(magrittr)
+<<<<<<< HEAD
 tcga_path = "S:/study/生存分析/免疫检查点project/liucj_tcga_process_data"
 expr_path <- "S:/study/生存分析/免疫检查点project/result"
 expr_path_a <- file.path(expr_path, "all_expr")
@@ -13,6 +14,20 @@ gene_list$symbol %>% as.character() ->gene_list$symbol
 gene_type<-read.table(file.path(gene_list_path,"checkpoint.type"),header=T)
 gene_list<-dplyr::left_join(gene_list,gene_type,by="symbol")
 
+=======
+library(ggplot2)
+tcga_path = "/home/cliu18/liucj/projects/6.autophagy/TCGA"
+expr_path <- "/home/cliu18/liucj/projects/6.autophagy/02_autophagy_expr/"
+expr_path_a <- file.path(expr_path, "03_a_gene_expr")
+snv_path <- "/home/cliu18/liucj/projects/6.autophagy/04_snv"
+
+# load cnv and gene list
+snv <- readr::read_rds(file.path(tcga_path, "pancan33_snv.rds.gz"))
+marker_file <- readr::read_rds(file.path(expr_path_a, "rds_03_a_atg_lys_marker.rds.gz"))
+gene_list <- readr::read_rds(file.path(expr_path_a, "rds_03_a_atg_lys_gene_list.rds.gz")) %>% 
+  dplyr::left_join(marker_file, by = "symbol") %>% 
+  dplyr::mutate(symbol = dplyr::recode(symbol, "ATG101" = "C12orf44"))
+>>>>>>> c132521682f5114b521351d1257425ece5a06a56
 
 filter_gene_list <- function(.x, gene_list) {
   gene_list %>%
@@ -58,14 +73,30 @@ gene_list_snv %>%
   dplyr::select(-PARTITION_ID) %>% 
   dplyr::select(-cancer_types, -filter_snv) %>% 
   tidyr::unnest(res) -> gene_list_snv_count
-on.exit(parallel::stopCluster(cluster))
+parallel::stopCluster(cluster)
 
-library(ggplot2)
+gene_list_snv_count %>% 
+  readr::write_rds(path = file.path(snv_path, ".rds_snv_a_gene_list_snv_count.rds.gz"), compress = "gz")
+
 gene_list_snv_count %>% 
   tidyr::unnest(mut_count) %>% 
   tidyr::drop_na() %>%
   dplyr::mutate(x_label = paste(cancer_types, " (n=", n,")", sep = "")) %>% 
   dplyr::mutate(sm_count = ifelse(sm_count>0, sm_count, NA)) -> plot_ready
+
+# core atg
+# gene_list %>%
+#   dplyr::filter(pathway == "autophagesome formation-core") -> gene_list_core
+# plot_ready %>%
+#   dplyr::semi_join(gene_list_core, by = "symbol") -> plot_ready
+
+# lys
+gene_list %>%
+  dplyr::filter(status == "l") -> gene_list_lys
+
+plot_ready %>%
+  dplyr::semi_join(gene_list_lys, by = "symbol") -> plot_ready
+
 
 plot_ready %>% 
   dplyr::group_by(x_label) %>% 
@@ -76,16 +107,23 @@ plot_ready %>%
   dplyr::group_by(symbol) %>% 
   dplyr::summarise(s = sum(sm_sample)) %>% 
   dplyr::left_join(gene_list, by = "symbol") %>% 
+<<<<<<< HEAD
   #dplyr::filter(status %in% c("p", "i")) %>% 
   dplyr::mutate(color = plyr::revalue(functionWithImmune, replace = c('TwoSide' = "blue", "Inhibit" = "red", "Activate" = "green"))) %>% 
   dplyr::mutate(size = plyr::revalue(type,replace = c('Receptor'="bold.italic",'Ligand'="plain"))) %>%
   dplyr::arrange(color,s) -> gene_rank
 gene_rank$color %>% as.character() ->gene_rank$color
 gene_rank$size %>% as.character() ->gene_rank$size
+=======
+  # dplyr::filter(status %in% c("p", "i")) %>% 
+  # dplyr::mutate(color = plyr::revalue(status, replace = c('a' = "#e41a1c", "l" = "#377eb8", "i" = "#4daf4a", "p" = "#984ea3"))) %>%
+  # dplyr::mutate(color = ifelse(is.na(marker), "black", "red")) %>%
+  dplyr::arrange(s) -> gene_rank
+>>>>>>> c132521682f5114b521351d1257425ece5a06a56
 
 plot_ready %>% 
   dplyr::filter(!symbol %in% c("TP53", "PTEN", "CDKN2A")) %>% 
-  dplyr::mutate(per = ifelse(per > 0.1, 0.1, per)) %>% 
+  dplyr::mutate(per = ifelse(per > 0.07, 0.07, per)) %>% 
   # dplyr::filter(per > 0.02) %>% 
   ggplot(aes(x = x_label, y = symbol, fill = per)) +
   geom_tile() +
@@ -94,9 +132,9 @@ plot_ready %>%
   scale_y_discrete(limits = gene_rank$symbol) +
   scale_fill_gradient2(
     name = "Mutation Frequency (%)",
-    limit = c(0, 0.1),
-    breaks = seq(0, 0.1, 0.01),
-    label = c("0", "", "", "3","", "", "",  "7", "","","10"),
+    limit = c(0, 0.07),
+    breaks = seq(0, 0.07, 0.01),
+    label = c("0", "", "", "3","", "", "",  "7"),
     high = "red",
     na.value = "white"
   ) +
@@ -113,7 +151,8 @@ plot_ready %>%
                              keyheight = 0.8 )) +
   labs(x = "", y = "") -> p;p
 
-ggsave(filename = "01_snv_all_seminar.pdf", plot = p, device = "pdf", path = snv_path, width = 9, height = 8)
+# ggsave(filename = "core_atg_freq.pdf", plot = p, device = "pdf", path = snv_path, width = 9, height = 7)
+ggsave(filename = "lys_freq.pdf", plot = p, device = "pdf", path = snv_path, width = 9, height = 13)
 
 
 save.image(file = file.path(snv_path, ".rda_02_snv_a_gene_list.rda"))

@@ -18,6 +18,7 @@ gene_list<-dplyr::left_join(gene_list,gene_type,by="symbol")
 mirna_expr <- readr::read_rds(file.path(tcga_path, "pancan33_mirna_expr.rds.gz"))
 
 gene_list %>% 
+  dplyr::filter(pathway == "autophagesome formation-core") %>% 
   dplyr::select(symbol) %>% 
   dplyr::left_join(mirna_target, by = "symbol") -> gene_list_mirna
 gene_list_mirna %>% readr::write_tsv(path = file.path(mirna_path, "02_a_gene_list_mirna.tsv"))
@@ -30,7 +31,11 @@ fn_filter_gene_list <- function(.x, gene_list) {
 }
 
 mirna_expr %>% 
-  dplyr::mutate(mirna = purrr::map(.x = mirna, .f = fn_filter_gene_list))
+  dplyr::mutate(mirna = purrr::map(.x = mirna, .f = fn_filter_gene_list)) -> gene_list_mirna_expr 
+
+gene_list_mirna_expr %>% 
+  tidyr::unnest()
+
 
 
 save.image(file = file.path(mirna_path, ".rda_02_mirna_a_gene_list_target.rda"))

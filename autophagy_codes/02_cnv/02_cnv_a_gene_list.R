@@ -6,11 +6,15 @@ cnv_path <- "S:/study/生存分析/免疫检查点project/result/5.cnv"
 
 # load cnv and gene list
 cnv <- readr::read_rds(file.path(tcga_path, "pancan34_cnv.rds.gz"))
+<<<<<<< HEAD
 gene_list_path <- "S:/study/生存分析/免疫检查点project/免疫检查点"
 gene_list <- read.table(file.path(gene_list_path, "all.entrez_id-gene_id"),header=T)
 gene_list$symbol %>% as.character() ->gene_list$symbol
 gene_type<-read.table(file.path(gene_list_path,"checkpoint.type"),header=T)
 gene_list<-dplyr::left_join(gene_list,gene_type,by="symbol")
+=======
+gene_list <- readr::read_rds(file.path(expr_path_a, "rds_03_a_atg_lys_gene_list.rds.gz"))
+>>>>>>> c132521682f5114b521351d1257425ece5a06a56
 
 filter_gene_list <- function(.x, gene_list) {
   gene_list %>%
@@ -25,7 +29,7 @@ cnv %>%
 readr::write_rds(x = gene_list_cnv, path = file.path(cnv_path, ".rds_02_cnv_a_gene_list.rds.gz"), compress = "gz")
 
 fn_get_amplitue_threshold <- function(.x){
-  ifelse(abs(.x) < log2(3) - 1, 0, .x) -> .y
+  ifelse(abs(.x) < log2(4 / 2) , 0, .x) -> .y
   tibble::tibble(a = sum(.y > 0) / length(.y), d = sum(.y < 0) / length(.y)) 
 }
 fn_get_ad <- function(.d){
@@ -42,7 +46,7 @@ fn_get_percent <- function(cancer_types, filter_cnv){
     tibble::add_column(cancer_types = cancer_types, .before = 1)
 }
 
-gene_list_cnv %>% head(2) %>% 
+gene_list_cnv %>% dplyr::filter(cancer_types == "KIRC") %>% 
   dplyr::mutate(rs = purrr::map2(cancer_types, filter_cnv, fn_get_percent)) %>% 
   dplyr::select(-cancer_types, -filter_cnv) %>% 
   tidyr::unnest(rs)

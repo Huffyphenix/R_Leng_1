@@ -1,5 +1,5 @@
 library(ggplot2)
-`%>%` <- magrittr::`%>%`
+library(magrittr)
 
 
 # Path
@@ -12,11 +12,22 @@ methy_box <- file.path(methy_path, "boxplot")
 
 # load methylation and gene list
 methy <- readr::read_rds(file.path(tcga_path, "pancan33_meth.rds.gz"))
+<<<<<<< HEAD
 gene_list_path <- "S:/study/生存分析/免疫检查点project/免疫检查点"
 gene_list <- read.table(file.path(gene_list_path, "all.entrez_id-gene_id"),header=T)
 gene_list$symbol %>% as.character() ->gene_list$symbol
 gene_type<-read.table(file.path(gene_list_path,"checkpoint.type"),header=T)
 gene_list<-dplyr::left_join(gene_list,gene_type,by="symbol")
+=======
+
+#load gene list
+marker_file <- readr::read_rds(file.path(expr_path_a, "rds_03_a_atg_lys_marker.rds.gz"))
+gene_list <- readr::read_rds(file.path(expr_path_a, "rds_03_a_atg_lys_gene_list.rds.gz")) %>% 
+  dplyr::left_join(marker_file, by = "symbol")
+
+atg_gene <- gene_list %>% dplyr::filter(type == "atg") %>%  dplyr::pull(symbol)
+lys_gene <- gene_list %>% dplyr::filter(type == "lys") %>% dplyr::pull(symbol)
+>>>>>>> c132521682f5114b521351d1257425ece5a06a56
 
 # functions
 filter_gene_list <- function(.x, gene_list) {
@@ -29,6 +40,8 @@ methy %>%
   # dplyr::slice(2:5) %>%  # tidyr::unnest()
   dplyr::mutate(filter_methy = purrr::map(methy, filter_gene_list, gene_list = gene_list)) %>% 
   dplyr::select(-methy) -> gene_list_methy
+
+gene_list_methy %>% readr::write_rds(file.path(methy_path, ".rds_02_methy_a_gene_list_methy.rds.gz"), compress = 'gz')
 #------------------------------------------------------------
 fun_barcode <- function(.b){
   stringr::str_sub(
@@ -67,9 +80,15 @@ fun_compare <- function(.x, .y ){
       type == "01" ~ "Tumor",
       type == "11" ~ "Normal"
     )) %>% 
+<<<<<<< HEAD
     dplyr::filter(!is.na(gene)) -> .d
   if(nrow(.d) < 20 || length(unique(.d$type)) != 2){return(tibble::tibble())
     print(paste(.y,":no normal/tumor sample."))}
+=======
+    dplyr::filter(!is.na(gene)) %>% 
+    tidyr::drop_na() -> .d
+  if(nrow(.d) < 20 || length(unique(.d$type)) != 2){return(tibble::tibble())}
+>>>>>>> c132521682f5114b521351d1257425ece5a06a56
   # at least 10 samples
   .d %>% 
     dplyr::select(barcode, type) %>% 
@@ -97,24 +116,39 @@ fun_compare <- function(.x, .y ){
         )) %>% 
     dplyr::select(symbol, gene, direction, p_val = p.value, fdr,estimate) -> .d_out
   
+<<<<<<< HEAD
   # draw every pic, I have draw it, so annotate it to get data again.
   # .d %>%
   #   dplyr::semi_join(.d_out, by = c("symbol", "gene")) %>%
   #   # dplyr::filter(symbol %in% c("ATP6V0D1", "ATP6V0A4")) %>%
+=======
+  .d %>% 
+    dplyr::group_by(symbol, type) %>% 
+    dplyr::summarise(m = mean(meth)) %>% 
+    tidyr::spread(key = type, value = m) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::mutate(diff = Tumor - Normal) %>% 
+    dplyr::select(symbol, diff) %>% 
+    dplyr::inner_join(.d_out, by = "symbol") -> .d_out_diff
+  
+  # draw every pic
+  # .d %>%
+  #   dplyr::semi_join(.d_out, by = c("symbol", "gene")) %>%
+>>>>>>> c132521682f5114b521351d1257425ece5a06a56
   #   tidyr::nest(-symbol, -gene) %>%
   #   dplyr::mutate(fig_name = paste(.y, symbol, sep = "_")) %>% 
   #   dplyr::select(fig_name, data) %>% 
   #   purrr::pwalk(.f = fun_boxplot, path = methy_box)
   
-  return(.d_out)
+  return(.d_out_diff)
 }
 
 
-# gene_list_methy %>% 
-#   dplyr::slice(1) %>%
-#   dplyr::mutate(methy_comparison = purrr::map(.x = filter_methy, .y = cancer_types, .f = fun_compare)) %>% 
-#   dplyr::select(-filter_methy) %>% 
-#   tidyr::unnest() -> gene_list_methy_fdr
+gene_list_methy %>%
+  dplyr::slice(1) %>%
+  dplyr::mutate(methy_comparison = purrr::map(.x = filter_methy, .y = cancer_types, .f = fun_compare)) %>%
+  dplyr::select(-filter_methy) %>%
+  tidyr::unnest()
 
 cl <- parallel::detectCores()
 cluster <- multidplyr::create_cluster(floor(cl * 5 / 6))
@@ -134,13 +168,22 @@ gene_list_methy %>%
   dplyr::select(-PARTITION_ID) %>% 
   dplyr::select(-filter_methy) %>% 
   tidyr::unnest() -> gene_list_methy_fdr
+<<<<<<< HEAD
 on.exit(parallel::stopCluster(cluster))
 
 readr::write_rds(gene_list_methy_fdr, path = file.path(methy_path, ".rds_02_gene_list_methy_fdr.rds.gz"), compress = "gz")
 readr::write_tsv(gene_list_methy_fdr, path = file.path(methy_path, "tsv_02_gene_list_methy_fdr.tsv"))
+=======
+parallel::stopCluster(cluster)
+readr::write_rds(gene_list_methy_fdr, path = file.path(methy_path, ".rds_02_gene_list_methy_fdr.rds.gz"), compress = "gz")
+
+gene_list_methy_fdr <- readr::read_rds(path = file.path(methy_path, ".rds_02_gene_list_methy_fdr.rds.gz"))
+>>>>>>> c132521682f5114b521351d1257425ece5a06a56
 
 gene_list_methy_fdr %>% 
+  dplyr::filter(fdr < 0.05) %>% 
   dplyr::mutate(fdr = -log10(fdr)) %>% 
+<<<<<<< HEAD
   dplyr::mutate(fdr = ifelse(fdr > 50, 50, fdr)) %>%
   dplyr::mutate(Direction = ifelse(direction > 0, "Up", "Down"))-> plot_ready
 
@@ -174,7 +217,40 @@ plot_ready %>%
   geom_point(aes(size = fdr, color = Direction)) +
   scale_x_discrete(limit = cancer_rank$cancer_types) +
   scale_y_discrete(limit = gene_rank$symbol) +
+=======
+  dplyr::mutate(fdr = ifelse(fdr > 30, 30, fdr)) %>% 
+  dplyr::mutate(diff = dplyr::case_when(diff < -0.2 ~ -0.2, diff > 0.2 ~ 0.2, TRUE ~ diff)) -> plot_ready
+  
+plot_ready %>% 
+  dplyr::group_by(cancer_types) %>% 
+  dplyr::count() %>% 
+  dplyr::arrange(dplyr::desc(n)) -> cancer_rank
+
+plot_ready %>% 
+  dplyr::group_by(symbol) %>% 
+  dplyr::summarise(v = sum(diff)) %>% 
+  dplyr::filter(symbol %in% atg_gene) %>% 
+  dplyr::left_join(gene_list, by = 'symbol') %>%
+  # dplyr::filter(pathway == "autophagesome formation-core") %>%
+  # dplyr::filter(status == "l") %>% 
+  dplyr::mutate(color = ifelse(is.na(marker), 'black', 'red')) %>%
+  dplyr::arrange(v) -> gene_rank
+
+CPCOLS <- c("firebrick1", "gray97", "midnightblue")
+
+plot_ready %>% 
+  ggplot(aes(x = symbol, y = cancer_types)) +
+  geom_point(aes(size = fdr, color = diff)) +
+  scale_y_discrete(limit = cancer_rank$cancer_types) +
+  scale_x_discrete(limit = gene_rank$symbol) +
+>>>>>>> c132521682f5114b521351d1257425ece5a06a56
   scale_size_continuous(name = "FDR") +
+  scale_color_gradient2(
+    name = "Methylation diff (T - N)",
+    low = CPCOLS[3],
+    mid = CPCOLS[2],
+    high = CPCOLS[1]
+  ) +
   theme(
     panel.background = element_rect(colour = "black", fill = "white"),
     panel.grid = element_line(colour = "grey", linetype = "dashed"),
@@ -186,6 +262,7 @@ plot_ready %>%
     
     axis.title = element_blank(),
     axis.ticks = element_line(color = "black"),
+<<<<<<< HEAD
     axis.text.x = element_text(angle = 45,vjust=1,hjust = 1),
     axis.text.y = element_text(color = gene_rank$color,face = gene_rank$size),
     
@@ -197,6 +274,88 @@ plot_ready %>%
   ggthemes::scale_color_gdocs(name = "M(Tumor)\n—————\nM(Normal)") ->p
 ggsave(filename = 'methy_direction.pdf', plot = p, device = "pdf", 
        path = methy_path, width = 8, height = 8)
+=======
+    # axis.text.y = element_text(color = gene_rank$color),
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, color = gene_rank$color),
+    
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 12),
+    legend.key = element_rect(fill = "white", colour = "black"),
+    legend.position = "bottom",
+    legend.direction = "horizontal"
+  ) +
+  guides(
+    color = guide_colorbar(
+      title.position = "bottom",
+      title.hjust = 0.5,
+      barheight = 0.5,
+      barwidth = 10
+    )
+  ) -> p
+
+ggsave(filename = '02_atg_meth_diff.pdf', device = 'pdf', plot = p, path = methy_path, height = 5.5, width = 15)
+#------------------------------lysosome----------------
+
+plot_ready %>% 
+  dplyr::group_by(cancer_types) %>% 
+  dplyr::count() %>% 
+  dplyr::arrange(dplyr::desc(n)) -> cancer_rank
+
+plot_ready %>% 
+  dplyr::group_by(symbol) %>% 
+  dplyr::summarise(v = sum(diff)) %>% 
+  dplyr::filter(symbol %in% lys_gene) %>% 
+  dplyr::left_join(gene_list, by = 'symbol') %>%
+  # dplyr::filter(pathway == "autophagesome formation-core") %>%
+  # dplyr::filter(status == "l") %>% 
+  # dplyr::mutate(color = ifelse(is.na(marker), 'black', 'red')) %>%
+  dplyr::arrange(v) -> gene_rank
+
+CPCOLS <- c("firebrick1", "gray97", "midnightblue")
+
+plot_ready %>% 
+  ggplot(aes(x = symbol, y = cancer_types)) +
+  geom_point(aes(size = fdr, color = diff)) +
+  scale_y_discrete(limit = cancer_rank$cancer_types) +
+  scale_x_discrete(limit = gene_rank$symbol) +
+  scale_size_continuous(name = "FDR") +
+  scale_color_gradient2(
+    name = "Methylation diff (T - N)",
+    low = CPCOLS[3],
+    mid = CPCOLS[2],
+    high = CPCOLS[1]
+  ) +
+  theme(
+    panel.background = element_rect(colour = "black", fill = "white"),
+    panel.grid = element_line(colour = "grey", linetype = "dashed"),
+    panel.grid.major = element_line(
+      colour = "grey",
+      linetype = "dashed",
+      size = 0.2
+    ),
+    
+    axis.title = element_blank(),
+    axis.ticks = element_line(color = "black"),
+    # axis.text.y = element_text(color = gene_rank$color),
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, color = gene_rank$color),
+    
+    legend.text = element_text(size = 10),
+    legend.title = element_text(size = 12),
+    legend.key = element_rect(fill = "white", colour = "black"),
+    legend.position = "bottom",
+    legend.direction = "horizontal"
+  ) +
+  guides(
+    color = guide_colorbar(
+      title.position = "bottom",
+      title.hjust = 0.5,
+      barheight = 0.5,
+      barwidth = 10
+    )
+  ) -> p
+
+ggsave(filename = '02_lys_meth_diff.pdf', device = 'pdf', plot = p, path = methy_path, height = 5.5, width = 15)
+>>>>>>> c132521682f5114b521351d1257425ece5a06a56
 
 
 #
