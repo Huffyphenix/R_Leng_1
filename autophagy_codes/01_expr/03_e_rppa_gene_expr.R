@@ -1,22 +1,22 @@
 library(magrittr)
 library(ggplot2)
 
-expr_path <- "S:/study/生存分析/免疫检查点project/result"
+expr_path <- "S:/study/GSCALite"
 rppa_path <- file.path(expr_path, "03_e_rppa")
-tcga_path <- "S:/study/生存分析/免疫检查点project/liucj_tcga_process_data"
+tcga_path <- "S:/study/GSCALite/data"
 expr_path <- file.path(expr_path, "all_expr")
 
 # rppa <- readr::read_rds(path = file.path(tcga_path,"pancan_clinical_stage.rds.gz")) %>% 
   # dplyr::filter(n >= 40) %>% 
   # dplyr::select(-n)
 
-gene_list_path <- "S:/study/生存分析/免疫检查点project/免疫检查点"
+gene_list_path <- "S:/study/鐢熷瓨鍒嗘瀽/鍏嶇柅妫�鏌ョ偣project/鍏嶇柅妫�鏌ョ偣"
 gene_list <- read.table(file.path(gene_list_path, "all.entrez_id-gene_id"),header=T)
 gene_list$symbol %>% as.character() ->gene_list$symbol
 gene_type<-read.table(file.path(gene_list_path,"checkpoint.type"),header=T)
 gene_list<-dplyr::left_join(gene_list,gene_type,by="symbol")
 #gene_list <- readr::read_rds(file.path(expr_path, "rds_03_a_atg_lys_gene_list.rds.gz"))
-gene_list_expr <- readr::read_rds(path = file.path(expr_path, ".rds_03_a_gene_list_expr.rds.gz"))
+gene_list_expr <- readr::read_rds(path = file.path(tcga_path, ".rds_03_a_gene_list_expr.rds.gz"))
 
 gene_list_expr_median_cluster <- readr::read_rds(path = file.path(expr_path, ".rds_01_b_rppa_median_cluster_expr.rds.gz"))
 rppa_scores <- readr::read_rds(file.path(tcga_path, "pancan32_rppa_score.rds.gz"))
